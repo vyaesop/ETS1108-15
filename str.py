@@ -1,2 +1,2 @@
-import netbios
 import django
+object
