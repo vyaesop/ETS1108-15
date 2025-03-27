@@ -6,3 +6,4 @@ if user_input.upper() == keyword.upper():
     print("The strings match!")
 else:
     print("The strings are different.")
+    print("idk")
