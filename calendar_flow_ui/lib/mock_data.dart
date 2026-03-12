@@ -65,4 +65,8 @@ class MockData {
     const Color(0xFF7D87B1),
     const Color(0xFFB2B2B2),
   ];
+
+  static UserProfile get defaultProfile => profile;
+
+  static List<AppEvent> seedEvents() => List<AppEvent>.from(events);
 }

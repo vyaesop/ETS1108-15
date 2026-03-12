@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppEvent {
+  final int? id;
   final String title;
   final TimeOfDay start;
   final TimeOfDay end;
@@ -8,8 +9,10 @@ class AppEvent {
   final List<String> attendees;
   final Color color;
   final DateTime date;
+  final bool reminder;
 
   const AppEvent({
+    this.id,
     required this.title,
     required this.start,
     required this.end,
@@ -17,7 +20,44 @@ class AppEvent {
     required this.attendees,
     required this.color,
     required this.date,
+    this.reminder = true,
   });
+
+  factory AppEvent.fromMap(Map<String, Object?> map) {
+    return AppEvent(
+      id: map['id'] as int?,
+      title: map['title'] as String,
+      date: DateTime.parse(map['date'] as String),
+      start: _timeFromMinutes(map['start_minutes'] as int),
+      end: _timeFromMinutes(map['end_minutes'] as int),
+      location: map['location'] as String,
+      attendees: ((map['attendees'] as String).split('|')..removeWhere((value) => value.isEmpty)),
+      color: Color(map['color_value'] as int),
+      reminder: (map['reminder'] as int) == 1,
+    );
+  }
+
+  Map<String, Object?> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'date': DateTime(date.year, date.month, date.day).toIso8601String(),
+      'start_minutes': _toMinutes(start),
+      'end_minutes': _toMinutes(end),
+      'location': location,
+      'attendees': attendees.join('|'),
+      'color_value': color.value,
+      'reminder': reminder ? 1 : 0,
+    };
+  }
+
+  static int _toMinutes(TimeOfDay time) => (time.hour * 60) + time.minute;
+
+  static TimeOfDay _timeFromMinutes(int minutes) {
+    final hour = minutes ~/ 60;
+    final minute = minutes % 60;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
 }
 
 class EventDraft {
@@ -42,4 +82,23 @@ class UserProfile {
     required this.timezone,
     required this.goals,
   });
+
+  factory UserProfile.fromMap(Map<String, Object?> map) {
+    return UserProfile(
+      name: map['name'] as String,
+      city: map['city'] as String,
+      timezone: map['timezone'] as String,
+      goals: ((map['goals'] as String).split('|')..removeWhere((value) => value.isEmpty)),
+    );
+  }
+
+  Map<String, Object?> toMap() {
+    return {
+      'id': 1,
+      'name': name,
+      'city': city,
+      'timezone': timezone,
+      'goals': goals.join('|'),
+    };
+  }
 }
