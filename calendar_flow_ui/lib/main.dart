@@ -95,11 +95,18 @@ class _AppShellState extends State<AppShell> {
       ),
       MonthOverviewScreen(
         onMonthTap: (_) => setState(() => navIndex = 1),
+        onJumpToday: () => setState(() => navIndex = 0),
         events: widget.state.events,
       ),
       ProfileScreen(
         profile: widget.state.profile!,
         onSave: widget.state.saveProfile,
+        onResetData: () async {
+          await widget.state.resetAppData();
+          if (mounted && !widget.state.onboarded) {
+            setState(() => navIndex = 0);
+          }
+        },
       ),
     ];
 

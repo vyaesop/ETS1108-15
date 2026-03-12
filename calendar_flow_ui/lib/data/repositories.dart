@@ -5,6 +5,7 @@ abstract class EventRepository {
   Future<void> createEvent(AppEvent event);
   Future<void> updateEvent(AppEvent event);
   Future<void> deleteEvent(int id);
+  Future<void> resetAllData();
 }
 
 abstract class ProfileRepository {

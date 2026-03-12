@@ -26,6 +26,11 @@ class SqfliteEventRepository implements EventRepository {
   Future<void> updateEvent(AppEvent event) async {
     await _db.updateEvent(event);
   }
+
+  @override
+  Future<void> resetAllData() async {
+    await _db.resetAllData();
+  }
 }
 
 class SqfliteProfileRepository implements ProfileRepository {

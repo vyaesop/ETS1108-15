@@ -3,10 +3,16 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.profile, required this.onSave});
+  const ProfileScreen({
+    super.key,
+    required this.profile,
+    required this.onSave,
+    required this.onResetData,
+  });
 
   final UserProfile profile;
   final Future<void> Function(UserProfile) onSave;
+  final Future<void> Function() onResetData;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -27,7 +33,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     goalsCtrl = TextEditingController(text: widget.profile.goals.replaceAll('|', ', '));
   }
 
-
   @override
   void didUpdateWidget(covariant ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -38,6 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       goalsCtrl.text = widget.profile.goals.replaceAll('|', ', ');
     }
   }
+
   @override
   void dispose() {
     nameCtrl.dispose();
@@ -91,6 +97,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          Card(
+            color: Colors.red.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Danger Zone', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  const Text('Reset all local data (events, profile edits, onboarding state).'),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _confirmReset,
+                    icon: const Icon(Icons.restart_alt),
+                    label: const Text('Reset App Data'),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -98,7 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _save() async {
     final tz = tzCtrl.text.trim();
-    final tzValid = RegExp(r'^GMT[+-](?:0?[0-9]|1[0-2])$').hasMatch(tz);
+    final tzValid = RegExp(r'^GMT[+-](?:0?[0-9]|1[0-4])$').hasMatch(tz);
     if (!tzValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Timezone must be in format GMT+7 or GMT-5.')),
@@ -119,5 +146,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await widget.onSave(updated);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile saved locally.')));
+  }
+
+  Future<void> _confirmReset() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reset local data?'),
+        content: const Text('This will restore seeded profile/events and show onboarding again.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reset')),
+        ],
+      ),
+    );
+
+    if (sure != true) return;
+    await widget.onResetData();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Local data reset complete.')));
   }
 }

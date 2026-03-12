@@ -22,12 +22,19 @@ A personal scheduling planner for meetings, calls, reminders, and timezone-aware
 - Guarded app-state operations with surfaced error messaging.
 
 ## Phase 2 improvements
-- **Data normalization**: attendees moved to dedicated `event_attendees` table with migration logic.
-- **Advanced search filters**: query by text (title/location/attendee), reminder-only mode, and date-range filtering.
-- **Calendar correctness improvements**: month cards show event density badges based on real persisted data.
-- **Validation hardening**:
-  - Event form enforces required title and `end > start`.
-  - Profile save enforces timezone format (`GMT+7`, `GMT-5`, etc.).
+- Data normalization with `event_attendees` migration support.
+- Advanced search filters (text + reminder + date range).
+- Month cards now show real event density badges.
+- Event/profile validation improvements.
+
+## Phase 3 completion
+- Added CI workflow to run `flutter pub get`, `flutter analyze`, and `flutter test`.
+- Added destructive-action safeguards (delete confirmation, reset-data confirmation).
+- Added local data reset flow (reseed profile/events + onboarding reset).
+- Closed UX gaps:
+  - month view now has a clear “Today” jump action
+  - search has “Clear all” filter action
+- Added flow-by-flow QA checklist for manual verification.
 
 ## Included user flows
 - Onboarding (persisted)
@@ -40,6 +47,7 @@ A personal scheduling planner for meetings, calls, reminders, and timezone-aware
 - Edit event flow (update SQLite)
 - Delete event flow (delete from SQLite)
 - Profile/settings edit flow (save to SQLite)
+- Reset app data flow
 
 ## Run
 ```bash

@@ -191,6 +191,25 @@ class LocalDatabase {
     });
   }
 
+
+  Future<void> resetAllData() async {
+    final database = await db;
+    await database.transaction((txn) async {
+      await txn.delete('event_attendees');
+      await txn.delete('events');
+      await txn.delete('profiles');
+      await txn.delete('app_state');
+      await txn.insert('app_state', {'id': 1, 'onboarded': 0});
+      await txn.insert('profiles', MockData.defaultProfile.toMap());
+      for (final event in MockData.seedEvents()) {
+        final eventId = await txn.insert('events', event.toMap()..remove('id'));
+        for (final attendee in event.attendees) {
+          await txn.insert('event_attendees', {'event_id': eventId, 'attendee': attendee});
+        }
+      }
+    });
+  }
+
   Future<UserProfile> fetchProfile() async {
     final database = await db;
     final maps = await database.query('profiles', where: 'id = 1', limit: 1);

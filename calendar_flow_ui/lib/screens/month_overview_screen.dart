@@ -5,9 +5,15 @@ import '../models/app_models.dart';
 
 class MonthOverviewScreen extends StatelessWidget {
   final ValueChanged<int> onMonthTap;
+  final VoidCallback onJumpToday;
   final List<AppEvent> events;
 
-  const MonthOverviewScreen({super.key, required this.onMonthTap, required this.events});
+  const MonthOverviewScreen({
+    super.key,
+    required this.onMonthTap,
+    required this.onJumpToday,
+    required this.events,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +26,7 @@ class MonthOverviewScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                const BackButton(),
+                IconButton.filledTonal(onPressed: onJumpToday, icon: const Icon(Icons.today)),
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
@@ -97,7 +103,7 @@ class _MiniCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final highlightedCells = (highlightDensity.clamp(0, 8)) as int;
+    final highlightedCells = highlightDensity.clamp(0, 8);
     return Expanded(
       child: Column(
         children: [

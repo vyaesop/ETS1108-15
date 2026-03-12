@@ -71,6 +71,15 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  Future<void> resetAppData() async {
+    await _runGuarded(() async {
+      await _eventRepository.resetAllData();
+      onboarded = await _appStateRepository.fetchOnboarded();
+      events = await _eventRepository.fetchEvents();
+      profile = await _profileRepository.fetchProfile();
+    });
+  }
+
   void clearError() {
     lastError = null;
     notifyListeners();

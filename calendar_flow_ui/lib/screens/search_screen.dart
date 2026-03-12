@@ -80,6 +80,14 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (picked != null) setState(() => range = picked);
                 },
               ),
+              ActionChip(
+                onPressed: () => setState(() {
+                  ctrl.clear();
+                  reminderOnly = false;
+                  range = null;
+                }),
+                label: const Text('Clear all'),
+              ),
               if (range != null)
                 ActionChip(
                   onPressed: () => setState(() => range = null),

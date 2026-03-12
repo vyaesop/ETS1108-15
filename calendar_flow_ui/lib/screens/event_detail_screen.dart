@@ -112,6 +112,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   Future<void> _deleteEvent() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete this event?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
     await widget.onDelete();
     if (!mounted) return;
     Navigator.pop(context);
