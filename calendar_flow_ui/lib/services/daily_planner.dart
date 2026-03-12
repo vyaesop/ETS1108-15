@@ -14,7 +14,7 @@ class ScheduledEvent {
 
 List<ScheduledEvent> generateDailySchedule(DateTime date, List<AppEvent> events) {
   final day = DateTime(date.year, date.month, date.day);
-  final incomplete = events.where((e) => !e.completed).toList();
+  final incomplete = events.where((e) => !e.completed && !e.allDay).toList();
 
   incomplete.sort((a, b) {
     final reminderSort = (b.reminder ? 1 : 0).compareTo(a.reminder ? 1 : 0);

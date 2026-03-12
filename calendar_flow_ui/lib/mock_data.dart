@@ -62,6 +62,20 @@ class MockData {
         date: today.add(const Duration(days: 4)),
         reminder: true,
       ),
+      AppEvent(
+        title: 'Weekly Planning',
+        durationMinutes: 24 * 60,
+        start: const TimeOfDay(hour: 0, minute: 0),
+        end: const TimeOfDay(hour: 23, minute: 59),
+        location: 'Remote',
+        attendees: const ['ME'],
+        colorValue: const Color(0xFFB2AEDF).value,
+        date: today,
+        reminder: true,
+        allDay: true,
+        recurrenceRule: RecurrenceRule.weekly,
+        recurrenceUntil: null,
+      ),
     ];
   }
 

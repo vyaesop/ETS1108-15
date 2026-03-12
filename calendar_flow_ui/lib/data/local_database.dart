@@ -9,7 +9,7 @@ class LocalDatabase {
   static final LocalDatabase instance = LocalDatabase._();
 
   static const _dbName = 'chrono_ui.db';
-  static const _dbVersion = 5;
+  static const _dbVersion = 6;
 
   Database? _db;
 
@@ -63,7 +63,10 @@ class LocalDatabase {
         color_value INTEGER NOT NULL,
         reminder INTEGER NOT NULL,
         duration_minutes INTEGER NOT NULL DEFAULT 30,
-        completed INTEGER NOT NULL DEFAULT 0
+        completed INTEGER NOT NULL DEFAULT 0,
+        all_day INTEGER NOT NULL DEFAULT 0,
+        recurrence_rule TEXT NOT NULL DEFAULT 'none',
+        recurrence_until TEXT
       )
     ''');
 
@@ -186,6 +189,12 @@ class LocalDatabase {
         )
       ''');
     }
+
+    if (oldVersion < 6 && newVersion >= 6) {
+      await database.execute('ALTER TABLE events ADD COLUMN all_day INTEGER NOT NULL DEFAULT 0');
+      await database.execute("ALTER TABLE events ADD COLUMN recurrence_rule TEXT NOT NULL DEFAULT 'none'");
+      await database.execute('ALTER TABLE events ADD COLUMN recurrence_until TEXT');
+    }
   }
 
   Future<List<AppEvent>> fetchEvents() async {
@@ -203,6 +212,39 @@ class LocalDatabase {
     return eventMaps
         .map((map) => AppEvent.fromMap(map, attendees: byEvent[(map['id'] as int)] ?? const []))
         .toList();
+  }
+
+  Future<List<FocusSession>> fetchFocusSessions() async {
+    final database = await db;
+    final rows = await database.query('focus_sessions', orderBy: 'start_time ASC');
+    return rows.map(FocusSession.fromMap).toList();
+  }
+
+  Future<List<FocusSession>> fetchActiveFocusSessions() async {
+    final database = await db;
+    final rows = await database.query('focus_sessions', where: 'end_time IS NULL', orderBy: 'start_time ASC');
+    return rows.map(FocusSession.fromMap).toList();
+  }
+
+  Future<List<DailyProductivityStats>> fetchDailyStatsAll() async {
+    final database = await db;
+    final rows = await database.query('daily_stats', orderBy: 'date ASC');
+    return rows.map(DailyProductivityStats.fromMap).toList();
+  }
+
+  Future<AppDataSnapshot> snapshot() async {
+    final onboarded = await fetchOnboarded();
+    final profile = await fetchProfile();
+    final events = await fetchEvents();
+    final focusSessions = await fetchFocusSessions();
+    final dailyStats = await fetchDailyStatsAll();
+    return AppDataSnapshot(
+      onboarded: onboarded,
+      profile: profile,
+      events: events,
+      focusSessions: focusSessions,
+      dailyStats: dailyStats,
+    );
   }
 
   Future<int> insertEvent(AppEvent event) async {
@@ -348,6 +390,46 @@ class LocalDatabase {
         for (final attendee in event.attendees) {
           await txn.insert('event_attendees', {'event_id': eventId, 'attendee': attendee});
         }
+      }
+    });
+  }
+
+  Future<void> restoreSnapshot(AppDataSnapshot snapshot) async {
+    final database = await db;
+    await database.transaction((txn) async {
+      await txn.delete('focus_sessions');
+      await txn.delete('daily_stats');
+      await txn.delete('event_attendees');
+      await txn.delete('events');
+      await txn.delete('profiles');
+      await txn.delete('app_state');
+
+      await txn.insert('app_state', {'id': 1, 'onboarded': snapshot.onboarded ? 1 : 0});
+      await txn.insert('profiles', snapshot.profile.toMap());
+
+      for (final event in snapshot.events) {
+        final eventId = await txn.insert('events', event.toMap());
+        for (final attendee in event.attendees) {
+          await txn.insert('event_attendees', {'event_id': eventId, 'attendee': attendee});
+        }
+      }
+
+      for (final session in snapshot.focusSessions) {
+        await txn.insert('focus_sessions', {
+          'id': session.id,
+          'event_id': session.eventId,
+          'start_time': session.startTime.toIso8601String(),
+          'end_time': session.endTime?.toIso8601String(),
+          'duration_minutes': session.durationMinutes,
+        });
+      }
+
+      for (final stat in snapshot.dailyStats) {
+        await txn.insert('daily_stats', {
+          'date': DateTime(stat.date.year, stat.date.month, stat.date.day).toIso8601String(),
+          'tasks_completed': stat.tasksCompleted,
+          'focus_minutes': stat.focusMinutes,
+        });
       }
     });
   }

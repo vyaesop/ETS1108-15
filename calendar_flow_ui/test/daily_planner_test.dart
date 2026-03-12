@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('daily planner sorts and schedules sequentially from 09:00', () {
     final events = [
-      const AppEvent(
+      AppEvent(
         id: 2,
         title: 'Later',
         date: DateTime(2026, 1, 2),
@@ -19,7 +19,7 @@ void main() {
         durationMinutes: 60,
         completed: false,
       ),
-      const AppEvent(
+      AppEvent(
         id: 1,
         title: 'Priority',
         date: DateTime(2026, 1, 1),

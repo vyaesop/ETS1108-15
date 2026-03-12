@@ -8,12 +8,14 @@ class EventDetailScreen extends StatefulWidget {
   const EventDetailScreen({
     super.key,
     required this.event,
+    required this.existingEvents,
     required this.onDelete,
     required this.onSave,
     required this.onToggleCompleted,
   });
 
   final AppEvent event;
+  final List<AppEvent> existingEvents;
   final Future<void> Function() onDelete;
   final Future<void> Function(AppEvent event) onSave;
   final Future<void> Function(AppEvent event, bool completed) onToggleCompleted;
@@ -50,10 +52,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 children: [
                   Text(current.title, style: TextStyle(fontSize: 36, height: 1, color: txt, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 12),
-                  Text('${_fmt(current.start)} - ${_fmt(current.end)}', style: TextStyle(color: txt)),
+                  Text(current.allDay ? 'All day' : '${_fmt(current.start)} - ${_fmt(current.end)}', style: TextStyle(color: txt)),
                   const SizedBox(height: 6),
                   Text(DateFormat.yMMMMd().format(current.date), style: TextStyle(color: txt.withOpacity(.9))),
                   Text(current.location, style: TextStyle(color: txt.withOpacity(.9))),
+                  if (current.isOccurrence) ...[
+                    const SizedBox(height: 8),
+                    Text('Part of a repeating series', style: TextStyle(color: txt.withOpacity(.9), fontSize: 12)),
+                  ],
                 ],
               ),
             ),
@@ -62,22 +68,29 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             const SizedBox(height: 8),
             Wrap(spacing: 8, children: current.attendees.map((e) => Chip(label: Text(e))).toList()),
             const SizedBox(height: 20),
-            ListTile(
+            SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Reminder'),
               subtitle: Text(current.reminder ? 'Enabled (15 minutes before)' : 'Disabled'),
-              trailing: Icon(current.reminder ? Icons.notifications_active_outlined : Icons.notifications_off_outlined),
+              value: current.reminder,
+              onChanged: (value) => _toggleReminder(value),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Repeat'),
+              subtitle: Text(_recurrenceLabel(current.recurrenceRule, current.recurrenceUntil)),
+              trailing: Icon(current.recurrenceRule == RecurrenceRule.none ? Icons.repeat : Icons.repeat_on),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Duration'),
-              subtitle: Text('${current.effectiveDurationMinutes} minutes'),
+              subtitle: Text(current.allDay ? 'All day' : '${current.effectiveDurationMinutes} minutes'),
               trailing: Icon(current.completed ? Icons.check_circle : Icons.radio_button_unchecked),
             ),
             const ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text('Storage'),
-              subtitle: Text('Persisted in local SQLite database'),
+              subtitle: Text('Stored locally on this device'),
               trailing: Icon(Icons.storage_outlined),
             ),
             const Spacer(),
@@ -117,16 +130,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _editEvent() async {
     final edited = await Navigator.of(context).push<AppEvent>(
-      MaterialPageRoute(builder: (_) => CreateEventScreen(initial: current)),
+      MaterialPageRoute(builder: (_) => CreateEventScreen(initial: current, existingEvents: widget.existingEvents)),
     );
     if (edited == null) return;
 
     await widget.onSave(edited);
     if (!mounted) return;
     setState(() => current = edited);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event updated in SQLite.')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event updated.')));
   }
 
+
+  Future<void> _toggleReminder(bool value) async {
+    final updated = current.copyWith(reminder: value);
+    await widget.onSave(updated);
+    if (!mounted) return;
+    setState(() => current = updated);
+  }
 
   Future<void> _toggleCompleted() async {
     final next = !current.completed;
@@ -151,7 +171,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (confirm != true) return;
     await widget.onDelete();
     if (!mounted) return;
-    Navigator.pop(context);
+    Navigator.pop(context, EventDetailResult.deleted(current.copyWith(id: null)));
   }
 
   String _fmt(TimeOfDay value) {
@@ -160,4 +180,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final p = value.period == DayPeriod.am ? 'AM' : 'PM';
     return '$h:$m $p';
   }
+
+  String _recurrenceLabel(RecurrenceRule rule, DateTime? until) {
+    final base = switch (rule) {
+      RecurrenceRule.none => 'Does not repeat',
+      RecurrenceRule.daily => 'Daily',
+      RecurrenceRule.weekly => 'Weekly',
+      RecurrenceRule.monthly => 'Monthly',
+    };
+    if (rule == RecurrenceRule.none) return base;
+    if (until == null) return '$base, no end date';
+    return '$base until ${DateFormat.yMMMd().format(until)}';
+  }
+}
+
+class EventDetailResult {
+  final AppEvent? deletedEvent;
+
+  const EventDetailResult._({this.deletedEvent});
+
+  factory EventDetailResult.deleted(AppEvent event) => EventDetailResult._(deletedEvent: event);
 }

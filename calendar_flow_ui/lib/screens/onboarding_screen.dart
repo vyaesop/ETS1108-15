@@ -17,7 +17,7 @@ class OnboardingScreen extends StatelessWidget {
             Text('Chrono', style: Theme.of(context).textTheme.headlineLarge?.copyWith(fontSize: 56)),
             const SizedBox(height: 16),
             const Text(
-              'A timezone-aware planning app for meetings, calls, and reminders. Inspired by your Dribbble references.',
+              'A planning app for meetings, calls, and reminders. Displays your profile timezone using GMT offsets.',
               style: TextStyle(fontSize: 16, height: 1.45),
             ),
             const SizedBox(height: 32),

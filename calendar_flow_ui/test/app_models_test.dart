@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('AppEvent map round-trip preserves key fields', () {
-    const event = AppEvent(
+    final event = AppEvent(
       id: 10,
       title: 'Review',
       date: DateTime(2026, 5, 1),

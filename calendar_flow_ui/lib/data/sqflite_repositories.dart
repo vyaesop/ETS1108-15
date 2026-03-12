@@ -46,6 +46,11 @@ class SqfliteEventRepository implements EventRepository {
   Future<DailyProductivityStats> fetchDailyStats(DateTime date) async {
     return _db.fetchDailyStats(date);
   }
+
+  @override
+  Future<List<FocusSession>> fetchActiveFocusSessions() async {
+    return _db.fetchActiveFocusSessions();
+  }
 }
 
 class SqfliteProfileRepository implements ProfileRepository {
@@ -77,5 +82,21 @@ class SqfliteAppStateRepository implements AppStateRepository {
   @override
   Future<void> setOnboarded(bool value) async {
     await _db.setOnboarded(value);
+  }
+}
+
+class SqfliteMaintenanceRepository implements MaintenanceRepository {
+  SqfliteMaintenanceRepository(this._db);
+
+  final LocalDatabase _db;
+
+  @override
+  Future<AppDataSnapshot> snapshot() async {
+    return _db.snapshot();
+  }
+
+  @override
+  Future<void> restore(AppDataSnapshot snapshot) async {
+    await _db.restoreSnapshot(snapshot);
   }
 }

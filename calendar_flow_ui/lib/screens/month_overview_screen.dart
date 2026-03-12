@@ -6,14 +6,12 @@ import '../models/app_models.dart';
 class MonthOverviewScreen extends StatefulWidget {
   final ValueChanged<int> onMonthTap;
   final VoidCallback onJumpToday;
-  final VoidCallback onCreate;
   final List<AppEvent> events;
 
   const MonthOverviewScreen({
     super.key,
     required this.onMonthTap,
     required this.onJumpToday,
-    required this.onCreate,
     required this.events,
   });
 
@@ -88,10 +86,6 @@ class _MonthOverviewScreenState extends State<MonthOverviewScreen> {
                     ),
                   ),
                 ),
-                Tooltip(
-                  message: 'Create event',
-                  child: IconButton.filledTonal(onPressed: widget.onCreate, icon: const Icon(Icons.add)),
-                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -110,6 +104,7 @@ class _MonthOverviewScreenState extends State<MonthOverviewScreen> {
                         final index = monthIndexes[idx];
                         final color = MockData.monthPalette[index];
                         final count = widget.events.where((e) => e.date.month == index + 1).length;
+                        final year = DateTime.now().year;
                         return InkWell(
                           onTap: () => widget.onMonthTap(index),
                           child: Container(
@@ -121,7 +116,13 @@ class _MonthOverviewScreenState extends State<MonthOverviewScreen> {
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: Text(months[index], style: TextStyle(color: Colors.white.withOpacity(.95), fontWeight: FontWeight.w600)),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(months[index], style: TextStyle(color: Colors.white.withOpacity(.95), fontWeight: FontWeight.w600)),
+                                          Text('$year', style: TextStyle(color: Colors.white.withOpacity(.8), fontSize: 11)),
+                                        ],
+                                      ),
                                     ),
                                     if (count > 0)
                                       Container(
@@ -135,7 +136,12 @@ class _MonthOverviewScreenState extends State<MonthOverviewScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                _MiniCalendar(color: Colors.white.withOpacity(.85), highlightDensity: count),
+                                _MiniCalendar(
+                                  color: Colors.white.withOpacity(.85),
+                                  highlightDensity: count,
+                                  monthIndex: index,
+                                  year: year,
+                                ),
                               ],
                             ),
                           ),
@@ -153,12 +159,23 @@ class _MonthOverviewScreenState extends State<MonthOverviewScreen> {
 class _MiniCalendar extends StatelessWidget {
   final Color color;
   final int highlightDensity;
+  final int monthIndex;
+  final int year;
 
-  const _MiniCalendar({required this.color, required this.highlightDensity});
+  const _MiniCalendar({
+    required this.color,
+    required this.highlightDensity,
+    required this.monthIndex,
+    required this.year,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final highlightedCells = highlightDensity.clamp(0, 8);
+    final month = monthIndex + 1;
+    final firstDay = DateTime(year, month, 1);
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    final startIndex = firstDay.weekday % 7;
+    final highlightedDays = highlightDensity.clamp(0, daysInMonth);
     return Expanded(
       child: Column(
         children: [
@@ -167,11 +184,13 @@ class _MiniCalendar extends StatelessWidget {
           Expanded(
             child: GridView.builder(
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: 35,
+              itemCount: 42,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
               itemBuilder: (_, index) {
-                final day = index % 31 == 0 ? '' : '${(index % 31) + 1}';
-                final highlighted = index < highlightedCells && day.isNotEmpty;
+                final dayNumber = index - startIndex + 1;
+                final validDay = dayNumber >= 1 && dayNumber <= daysInMonth;
+                final day = validDay ? '$dayNumber' : '';
+                final highlighted = validDay && dayNumber <= highlightedDays;
                 return Center(
                   child: Container(
                     width: 12,

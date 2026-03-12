@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _FakeEventRepository implements EventRepository {
   List<AppEvent> _events = [
-    const AppEvent(
+    AppEvent(
       id: 1,
       title: 'A',
       date: DateTime(2026, 1, 1),
@@ -54,10 +54,15 @@ class _FakeEventRepository implements EventRepository {
   Future<DailyProductivityStats> fetchDailyStats(DateTime date) async {
     return DailyProductivityStats.empty(date);
   }
+
+  @override
+  Future<List<FocusSession>> fetchActiveFocusSessions() async {
+    return [];
+  }
 }
 
 class _FakeProfileRepository implements ProfileRepository {
-  UserProfile profile = const UserProfile(
+  UserProfile profile = UserProfile(
     id: 1,
     name: 'A',
     city: 'X',
@@ -86,12 +91,34 @@ class _FakeAppStateRepository implements AppStateRepository {
   }
 }
 
+class _FakeMaintenanceRepository implements MaintenanceRepository {
+  AppDataSnapshot? snapshotValue;
+
+  @override
+  Future<AppDataSnapshot> snapshot() async {
+    return snapshotValue ??
+        AppDataSnapshot(
+          onboarded: false,
+          profile: UserProfile(id: 1, name: 'A', city: 'X', timezone: 'GMT+7', goals: 'One|Two'),
+          events: [],
+          focusSessions: [],
+          dailyStats: [],
+        );
+  }
+
+  @override
+  Future<void> restore(AppDataSnapshot snapshot) async {
+    snapshotValue = snapshot;
+  }
+}
+
 void main() {
   test('initialize + completeOnboarding updates state', () async {
     final appState = AppState(
       eventRepository: _FakeEventRepository(),
       profileRepository: _FakeProfileRepository(),
       appStateRepository: _FakeAppStateRepository(),
+      maintenanceRepository: _FakeMaintenanceRepository(),
     );
 
     await appState.initialize();
@@ -125,9 +152,12 @@ void main() {
       eventRepository: repo,
       profileRepository: _FakeProfileRepository(),
       appStateRepository: _FakeAppStateRepository(),
+      maintenanceRepository: _FakeMaintenanceRepository(),
     );
 
     await appState.initialize();
+    expect(appState.rolloverCandidates, isNotEmpty);
+    await appState.rolloverUnfinishedEvents();
     final today = DateTime.now();
     final rolled = appState.events.first;
     expect(rolled.date.year, today.year);

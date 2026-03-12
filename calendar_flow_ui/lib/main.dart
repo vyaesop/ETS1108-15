@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_theme.dart';
 import 'data/local_database.dart';
@@ -13,8 +14,11 @@ import 'screens/onboarding_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/search_screen.dart';
 import 'state/app_state.dart';
+import 'services/notification_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.instance.init();
   runApp(const PlannerApp());
 }
 
@@ -36,6 +40,7 @@ class _PlannerAppState extends State<PlannerApp> {
       eventRepository: SqfliteEventRepository(db),
       profileRepository: SqfliteProfileRepository(db),
       appStateRepository: SqfliteAppStateRepository(db),
+      maintenanceRepository: SqfliteMaintenanceRepository(db),
     )..initialize();
   }
 
@@ -74,6 +79,15 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int navIndex = 0;
+  bool rolloverPrompted = false;
+  DateTime? calendarFocusDate;
+  SearchState searchState = const SearchState(
+    query: '',
+    reminderOnly: false,
+    incompleteOnly: false,
+    range: null,
+    sort: SearchSort.date,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -88,46 +102,87 @@ class _AppShellState extends State<AppShell> {
     final completedCount = todayEvents.where((e) => e.completed).length;
     final completionProgress = todayEvents.isEmpty ? 0.0 : completedCount / todayEvents.length;
 
+    final focusMonthOffset = calendarFocusDate == null
+        ? 0
+        : (calendarFocusDate!.year - today.year) * 12 + (calendarFocusDate!.month - today.month);
+
     final screens = [
       HomeScreen(
         events: widget.state.events,
+        profile: widget.state.profile,
         onTapEvent: _openEvent,
-        onCreate: _openCreate,
-        onOpenSearch: _openSearch,
         todayPlan: widget.state.buildDailyPlan(today),
         completionProgress: completionProgress,
         tasksCompletedToday: widget.state.todayStats.tasksCompleted,
         focusMinutesToday: widget.state.todayStats.focusMinutes,
         activeFocusEventIds: widget.state.activeFocusEventIds,
-        onToggleCompleted: widget.state.toggleEventCompleted,
+        activeFocusStartTimes: widget.state.activeFocusStartTimes,
         onToggleFocus: _toggleFocus,
+        onAddEvent: _openCreate,
+        onOpenCalendar: () => setState(() => navIndex = 1),
       ),
       CalendarBoardScreen(
+        key: ValueKey('calendar-$focusMonthOffset'),
         events: widget.state.events,
         onTapEvent: _openEvent,
-        onCreate: _openCreate,
+        onCreateForDate: _openCreateForDate,
+        initialMode: 1,
+        initialMonthOffset: focusMonthOffset,
       ),
       MonthOverviewScreen(
-        onMonthTap: (_) => setState(() => navIndex = 1),
+        onMonthTap: _openMonth,
         onJumpToday: () => setState(() => navIndex = 0),
-        onCreate: _openCreate,
         events: widget.state.events,
       ),
       ProfileScreen(
         profile: widget.state.profile!,
         onSave: widget.state.saveProfile,
         onResetData: () async {
-          await widget.state.resetAppData();
+          final backup = await widget.state.resetAppDataWithBackup();
           if (mounted && !widget.state.onboarded) {
             setState(() => navIndex = 0);
           }
+          return backup;
         },
+        onRestoreData: widget.state.restoreAppData,
+        onExportData: widget.state.exportSnapshotJson,
+        onImportData: widget.state.importSnapshotJson,
       ),
     ];
 
+    if (!rolloverPrompted && widget.state.rolloverCandidates.isNotEmpty) {
+      rolloverPrompted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _promptRollover(widget.state.rolloverCandidates.length));
+    }
+
+    final showAppBar = navIndex != 0;
     return Scaffold(
-      body: Column(
-        children: [
+      appBar: showAppBar
+          ? AppBar(
+              title: Text(_navTitle(navIndex)),
+              actions: [
+                IconButton(
+                  tooltip: 'Search',
+                  onPressed: _openSearch,
+                  icon: const Icon(Icons.search),
+                ),
+              ],
+            )
+          : null,
+      body: Shortcuts(
+        shortcuts: {
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF): const _OpenSearchIntent(),
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN): const _OpenCreateIntent(),
+        },
+        child: Actions(
+          actions: {
+            _OpenSearchIntent: CallbackAction<_OpenSearchIntent>(onInvoke: (_) => _openSearch()),
+            _OpenCreateIntent: CallbackAction<_OpenCreateIntent>(onInvoke: (_) => _openCreate()),
+          },
+          child: Focus(
+            autofocus: true,
+            child: Column(
+              children: [
           if (widget.state.lastError != null)
             Material(
               color: Colors.red.shade100,
@@ -145,13 +200,23 @@ class _AppShellState extends State<AppShell> {
             ),
           if (widget.state.mutating) const LinearProgressIndicator(minHeight: 2),
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: KeyedSubtree(key: ValueKey(navIndex), child: screens[navIndex]),
+            child: IndexedStack(
+              index: navIndex,
+              children: screens,
             ),
           ),
-        ],
+              ],
+            ),
+          ),
+        ),
       ),
+      floatingActionButton: showAppBar
+          ? FloatingActionButton(
+              onPressed: _openCreate,
+              tooltip: 'Create event',
+              child: const Icon(Icons.add),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navIndex,
         onDestinationSelected: (value) => setState(() => navIndex = value),
@@ -168,30 +233,56 @@ class _AppShellState extends State<AppShell> {
   void _openSearch() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => SearchScreen(events: widget.state.events, onTapEvent: _openEvent),
+        builder: (_) => SearchScreen(
+          events: widget.state.events,
+          onTapEvent: _openEvent,
+          onJumpToDate: _focusCalendarDate,
+          onStateChanged: (state) => searchState = state,
+          initialState: searchState,
+        ),
       ),
     );
   }
 
   Future<void> _openCreate() async {
     final event = await Navigator.of(context).push<AppEvent>(
-      MaterialPageRoute(builder: (_) => const CreateEventScreen()),
+      MaterialPageRoute(builder: (_) => CreateEventScreen(existingEvents: widget.state.events)),
     );
     if (event == null) return;
     await widget.state.createEvent(event);
     if (!mounted) return;
     if (widget.state.lastError == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved to local SQLite database.')),
+        const SnackBar(content: Text('Event saved.')),
+      );
+    }
+  }
+
+  Future<void> _openCreateForDate(DateTime date) async {
+    final event = await Navigator.of(context).push<AppEvent>(
+      MaterialPageRoute(
+        builder: (_) => CreateEventScreen(
+          existingEvents: widget.state.events,
+          initialDate: date,
+        ),
+      ),
+    );
+    if (event == null) return;
+    await widget.state.createEvent(event);
+    if (!mounted) return;
+    if (widget.state.lastError == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Event saved.')),
       );
     }
   }
 
   Future<void> _openEvent(AppEvent event) async {
-    await Navigator.of(context).push(
+    final result = await Navigator.of(context).push<EventDetailResult>(
       MaterialPageRoute(
         builder: (_) => EventDetailScreen(
           event: event,
+          existingEvents: widget.state.events,
           onDelete: () async {
             if (event.id != null) {
               await widget.state.deleteEvent(event.id!);
@@ -202,6 +293,21 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
     );
+    if (!mounted) return;
+    final deleted = result?.deletedEvent;
+    if (deleted != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Event deleted.'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              await widget.state.createEvent(deleted);
+            },
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _toggleFocus(AppEvent event) async {
@@ -212,4 +318,61 @@ class _AppShellState extends State<AppShell> {
       await widget.state.startFocusForEvent(event.id!);
     }
   }
+
+  void _focusCalendarDate(DateTime date) {
+    setState(() {
+      calendarFocusDate = DateTime(date.year, date.month, 1);
+      navIndex = 1;
+    });
+  }
+
+  void _openMonth(int monthIndex) {
+    final now = DateTime.now();
+    final target = DateTime(now.year, monthIndex + 1, 1);
+    _focusCalendarDate(target);
+  }
+
+  Future<void> _promptRollover(int count) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Move unfinished tasks?'),
+        content: Text('$count incomplete task${count == 1 ? '' : 's'} are from previous days. Move them to today?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep dates'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Move to today'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await widget.state.rolloverUnfinishedEvents();
+    } else {
+      widget.state.dismissRolloverCandidates();
+    }
+  }
+
+  String _navTitle(int index) {
+    return switch (index) {
+      0 => 'Today',
+      1 => 'Calendar',
+      2 => 'Months',
+      3 => 'Profile',
+      _ => 'Chrono',
+    };
+  }
+}
+
+class _OpenSearchIntent extends Intent {
+  const _OpenSearchIntent();
+}
+
+class _OpenCreateIntent extends Intent {
+  const _OpenCreateIntent();
 }

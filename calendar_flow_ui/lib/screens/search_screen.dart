@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:path/path.dart';
 
 import '../models/app_models.dart';
-import '../widgets/common_widgets.dart';
 
 class SearchScreen extends StatefulWidget {
   final List<AppEvent> events;
   final ValueChanged<AppEvent> onTapEvent;
+  final ValueChanged<DateTime>? onJumpToDate;
+  final ValueChanged<SearchState>? onStateChanged;
+  final SearchState? initialState;
 
-  const SearchScreen({super.key, required this.events, required this.onTapEvent});
+  const SearchScreen({
+    super.key,
+    required this.events,
+    required this.onTapEvent,
+    this.onJumpToDate,
+    this.onStateChanged,
+    this.initialState,
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -18,6 +29,8 @@ class _SearchScreenState extends State<SearchScreen> {
   bool reminderOnly = false;
   bool incompleteOnly = false;
   DateTimeRange? range;
+  bool _hydrated = false;
+  SearchSort sort = SearchSort.date;
 
   @override
   void dispose() {
@@ -27,6 +40,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _hydrateInitialState();
     final q = ctrl.text.trim().toLowerCase();
     final results = widget.events.where((e) {
       final textMatch = q.isEmpty ||
@@ -40,6 +54,10 @@ class _SearchScreenState extends State<SearchScreen> {
       return textMatch && reminderMatch && dateMatch && incompleteMatch;
     }).toList()
       ..sort((a, b) {
+        if (sort == SearchSort.title) {
+          final t = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+          if (t != 0) return t;
+        }
         final dateSort = a.date.compareTo(b.date);
         if (dateSort != 0) return dateSort;
         return (a.start.hour * 60 + a.start.minute).compareTo(b.start.hour * 60 + b.start.minute);
@@ -55,10 +73,16 @@ class _SearchScreenState extends State<SearchScreen> {
             decoration: InputDecoration(
               hintText: 'Meeting, lunch, location, attendee...',
               prefixIcon: const Icon(Icons.search),
-              suffixIcon: IconButton(onPressed: () => setState(ctrl.clear), icon: const Icon(Icons.close)),
+              suffixIcon: IconButton(
+                onPressed: () {
+                  ctrl.clear();
+                  _updateState();
+                },
+                icon: const Icon(Icons.close),
+              ),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
             ),
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => _updateState(),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -68,12 +92,12 @@ class _SearchScreenState extends State<SearchScreen> {
               FilterChip(
                 selected: reminderOnly,
                 label: const Text('Reminders only'),
-                onSelected: (v) => setState(() => reminderOnly = v),
+                onSelected: (v) => _updateState(reminder: v),
               ),
               FilterChip(
                 selected: incompleteOnly,
                 label: const Text('Incomplete only'),
-                onSelected: (v) => setState(() => incompleteOnly = v),
+                onSelected: (v) => _updateState(incomplete: v),
               ),
               FilterChip(
                 selected: range != null,
@@ -86,26 +110,22 @@ class _SearchScreenState extends State<SearchScreen> {
                     lastDate: DateTime(now.year + 2),
                     initialDateRange: range,
                   );
-                  if (picked != null) setState(() => range = picked);
+                  if (picked != null) _updateState(newRange: picked, updateRange: true);
                 },
               ),
               ActionChip(
-                onPressed: () => setState(() {
-                  ctrl.clear();
-                  reminderOnly = false;
-                  incompleteOnly = false;
-                  range = null;
-                }),
+                onPressed: _clearAll,
                 label: const Text('Clear all'),
               ),
-              if (range != null)
-                ActionChip(
-                  onPressed: () => setState(() => range = null),
-                  label: const Text('Clear range'),
-                ),
+              ActionChip(
+                onPressed: () => _updateSort(),
+                label: Text('Sort: ${sort == SearchSort.date ? 'Date' : 'Title'}'),
+              ),
             ],
           ),
           const SizedBox(height: 16),
+          Text('Results: ${results.length}', style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
           if (results.isEmpty)
             const Card(
               child: Padding(
@@ -114,11 +134,165 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             )
           else
-            ...results.map((e) => EventCard(event: e, onTap: () => widget.onTapEvent(e))),
+            ...results.map(
+              (e) => _SearchResultCard(
+                event: e,
+                query: q,
+                onTap: () => widget.onTapEvent(e),
+                onJumpToDate: widget.onJumpToDate,
+              ),
+            ),
         ],
       ),
     );
   }
 
   DateTime _normalize(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  void _hydrateInitialState() {
+    if (_hydrated || widget.initialState == null) return;
+    final state = widget.initialState!;
+    ctrl.text = state.query;
+    reminderOnly = state.reminderOnly;
+    incompleteOnly = state.incompleteOnly;
+    range = state.range;
+    sort = state.sort;
+    _hydrated = true;
+  }
+
+  void _emitState() {
+    widget.onStateChanged?.call(
+      SearchState(
+        query: ctrl.text.trim(),
+        reminderOnly: reminderOnly,
+        incompleteOnly: incompleteOnly,
+        range: range,
+        sort: sort,
+      ),
+    );
+  }
+
+  void _updateState({bool? reminder, bool? incomplete, DateTimeRange? newRange, bool updateRange = false}) {
+    setState(() {
+      if (reminder != null) reminderOnly = reminder;
+      if (incomplete != null) incompleteOnly = incomplete;
+      if (updateRange) range = newRange;
+    });
+    _emitState();
+  }
+
+  void _clearAll() {
+    setState(() {
+      ctrl.clear();
+      reminderOnly = false;
+      incompleteOnly = false;
+      range = null;
+    });
+    _emitState();
+  }
+
+  void _updateSort() {
+    setState(() {
+      sort = sort == SearchSort.date ? SearchSort.title : SearchSort.date;
+    });
+    _emitState();
+  }
 }
+
+class _SearchResultCard extends StatelessWidget {
+  final AppEvent event;
+  final String query;
+  final VoidCallback onTap;
+  final ValueChanged<DateTime>? onJumpToDate;
+
+  const _SearchResultCard({
+    required this.event,
+    required this.query,
+    required this.onTap,
+    required this.onJumpToDate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dateLabel = DateFormat.yMMMd().format(event.date);
+    final timeLabel = event.allDay ? 'All day' : '${_fmt(event.start)} - ${_fmt(event.end)}';
+    return Card(
+      child: ListTile(
+        onTap: onTap,
+        title: _highlightText(event.title, query),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$dateLabel - $timeLabel'),
+            _highlightText(event.location, query),
+            if (event.attendees.isNotEmpty)
+              _highlightText('Attendees: ${event.attendees.join(', ')}', query),
+            if (onJumpToDate != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () {
+                    onJumpToDate!(event.date);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Open day'),
+                ),
+              ),
+          ],
+        ),
+        trailing: event.completed ? const Icon(Icons.check_circle, color: Colors.green) : null,
+      ),
+    );
+  }
+
+  String _fmt(TimeOfDay value) {
+    final h = value.hourOfPeriod == 0 ? 12 : value.hourOfPeriod;
+    final m = value.minute.toString().padLeft(2, '0');
+    final p = value.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$h:$m $p';
+  }
+
+  Widget _highlightText(String text, String query) {
+    if (query.isEmpty) return Text(text);
+    final lower = text.toLowerCase();
+    final q = query.toLowerCase();
+    final spans = <TextSpan>[];
+    var start = 0;
+    while (true) {
+      final index = lower.indexOf(q, start);
+      if (index == -1) {
+        spans.add(TextSpan(text: text.substring(start)));
+        break;
+      }
+      if (index > start) {
+        spans.add(TextSpan(text: text.substring(start, index)));
+      }
+      spans.add(
+        TextSpan(
+          text: text.substring(index, index + q.length),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      );
+      start = index + q.length;
+    }
+    return RichText(text: TextSpan(style: DefaultTextStyle.of(context as BuildContext).style, children: spans));
+  }
+}
+
+class SearchState {
+  final String query;
+  final bool reminderOnly;
+  final bool incompleteOnly;
+  final DateTimeRange? range;
+  final SearchSort sort;
+
+  const SearchState({
+    required this.query,
+    required this.reminderOnly,
+    required this.incompleteOnly,
+    required this.range,
+    required this.sort,
+  });
+}
+
+enum SearchSort { date, title }

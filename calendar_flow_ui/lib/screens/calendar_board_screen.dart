@@ -6,13 +6,17 @@ import '../widgets/common_widgets.dart';
 class CalendarBoardScreen extends StatefulWidget {
   final List<AppEvent> events;
   final ValueChanged<AppEvent> onTapEvent;
-  final VoidCallback onCreate;
+  final ValueChanged<DateTime>? onCreateForDate;
+  final int initialMode;
+  final int initialMonthOffset;
 
   const CalendarBoardScreen({
     super.key,
     required this.events,
     required this.onTapEvent,
-    required this.onCreate,
+    this.onCreateForDate,
+    this.initialMode = 1,
+    this.initialMonthOffset = 0,
   });
 
   @override
@@ -20,8 +24,26 @@ class CalendarBoardScreen extends StatefulWidget {
 }
 
 class _CalendarBoardScreenState extends State<CalendarBoardScreen> {
-  int mode = 1;
-  int monthOffset = 0;
+  late int mode;
+  late int monthOffset;
+
+  @override
+  void initState() {
+    super.initState();
+    mode = widget.initialMode;
+    monthOffset = widget.initialMonthOffset;
+  }
+
+  @override
+  void didUpdateWidget(covariant CalendarBoardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialMonthOffset != widget.initialMonthOffset) {
+      monthOffset = widget.initialMonthOffset;
+    }
+    if (oldWidget.initialMode != widget.initialMode) {
+      mode = widget.initialMode;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,10 +77,6 @@ class _CalendarBoardScreenState extends State<CalendarBoardScreen> {
                   onSelected: (v) => setState(() => mode = v),
                 ),
               ),
-              Tooltip(
-                message: 'Create event',
-                child: IconButton.filledTonal(onPressed: widget.onCreate, icon: const Icon(Icons.add)),
-              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -73,6 +91,11 @@ class _CalendarBoardScreenState extends State<CalendarBoardScreen> {
                       style: const TextStyle(fontSize: 30, color: Colors.black54, letterSpacing: 1.1),
                     ),
                   ),
+                ),
+                IconButton(
+                  tooltip: 'Jump to today',
+                  onPressed: () => setState(() => monthOffset = 0),
+                  icon: const Icon(Icons.today),
                 ),
                 IconButton(onPressed: () => setState(() => monthOffset += 1), icon: const Icon(Icons.chevron_right)),
               ],
@@ -93,14 +116,17 @@ class _CalendarBoardScreenState extends State<CalendarBoardScreen> {
             ...days.map((day) {
               final dayEvents = grouped[day]!;
               final firstColor = dayEvents.first.color.withOpacity(.9);
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: firstColor, borderRadius: BorderRadius.circular(22)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_weekday(day), style: const TextStyle(color: Colors.white)),
+              return InkWell(
+                onTap: () => _openDaySheet(day, dayEvents),
+                borderRadius: BorderRadius.circular(22),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: firstColor, borderRadius: BorderRadius.circular(22)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_weekday(day), style: const TextStyle(color: Colors.white)),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -116,19 +142,16 @@ class _CalendarBoardScreenState extends State<CalendarBoardScreen> {
                                     onPressed: () => widget.onTapEvent(e),
                                     backgroundColor: Colors.black26,
                                     side: BorderSide.none,
-                                    label: Text('${_fmt(e.start)}  ${e.title}', style: const TextStyle(color: Colors.white)),
+                                    label: Text('${_timeLabel(e)}  ${e.title}', style: const TextStyle(color: Colors.white)),
                                   ),
                                 )
                                 .toList(),
                           ),
                         ),
-                        IconButton(
-                          onPressed: widget.onCreate,
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-                        ),
                       ],
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             }),
@@ -142,4 +165,52 @@ class _CalendarBoardScreenState extends State<CalendarBoardScreen> {
   String _month(DateTime d) => ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][d.month - 1];
   String _fmt(TimeOfDay t) => '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
   String _monthLabel(DateTime d) => '${_month(d)} ${d.year}';
+  String _timeLabel(AppEvent event) => event.allDay ? 'ALL DAY' : _fmt(event.start);
+
+  Future<void> _openDaySheet(DateTime day, List<AppEvent> dayEvents) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${day.day} ${_month(day)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              if (dayEvents.isEmpty)
+                const Text('No events for this day.')
+              else
+                ...dayEvents.map(
+                  (e) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(e.title),
+                    subtitle: Text(e.allDay ? 'All day' : '${_fmt(e.start)} - ${_fmt(e.end)}'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      widget.onTapEvent(e);
+                    },
+                  ),
+                ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonal(
+                  onPressed: widget.onCreateForDate == null
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          widget.onCreateForDate!(day);
+                        },
+                  child: const Text('Create event on this day'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
