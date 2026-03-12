@@ -8,6 +8,9 @@ class LocalDatabase {
   LocalDatabase._();
   static final LocalDatabase instance = LocalDatabase._();
 
+  static const _dbName = 'chrono_ui.db';
+  static const _dbVersion = 2;
+
   Database? _db;
 
   Future<Database> get db async {
@@ -17,49 +20,72 @@ class LocalDatabase {
   }
 
   Future<Database> _open() async {
-    final path = join(await getDatabasesPath(), 'chrono_ui.db');
+    final path = join(await getDatabasesPath(), _dbName);
     return openDatabase(
       path,
-      version: 1,
+      version: _dbVersion,
       onCreate: (database, version) async {
-        await database.execute('''
-          CREATE TABLE app_state(
-            id INTEGER PRIMARY KEY,
-            onboarded INTEGER NOT NULL
-          )
-        ''');
-
-        await database.execute('''
-          CREATE TABLE profiles(
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            city TEXT NOT NULL,
-            timezone TEXT NOT NULL,
-            goals TEXT NOT NULL
-          )
-        ''');
-
-        await database.execute('''
-          CREATE TABLE events(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            date TEXT NOT NULL,
-            start_minutes INTEGER NOT NULL,
-            end_minutes INTEGER NOT NULL,
-            location TEXT NOT NULL,
-            attendees TEXT NOT NULL,
-            color_value INTEGER NOT NULL,
-            reminder INTEGER NOT NULL
-          )
-        ''');
-
-        await database.insert('app_state', {'id': 1, 'onboarded': 0});
-        await database.insert('profiles', MockData.defaultProfile.toMap());
-        for (final event in MockData.seedEvents()) {
-          await database.insert('events', event.toMap()..remove('id'));
-        }
+        await _createSchema(database);
+        await _seed(database);
+      },
+      onUpgrade: (database, oldVersion, newVersion) async {
+        await _migrate(database, oldVersion, newVersion);
       },
     );
+  }
+
+  Future<void> _createSchema(Database database) async {
+    await database.execute('''
+      CREATE TABLE app_state(
+        id INTEGER PRIMARY KEY,
+        onboarded INTEGER NOT NULL
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE profiles(
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        city TEXT NOT NULL,
+        timezone TEXT NOT NULL,
+        goals TEXT NOT NULL
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE events(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        date TEXT NOT NULL,
+        start_minutes INTEGER NOT NULL,
+        end_minutes INTEGER NOT NULL,
+        location TEXT NOT NULL,
+        attendees TEXT NOT NULL,
+        color_value INTEGER NOT NULL,
+        reminder INTEGER NOT NULL
+      )
+    ''');
+
+    await _createIndexes(database);
+  }
+
+  Future<void> _createIndexes(Database database) async {
+    await database.execute('CREATE INDEX IF NOT EXISTS idx_events_date ON events(date)');
+    await database.execute('CREATE INDEX IF NOT EXISTS idx_events_start_minutes ON events(start_minutes)');
+  }
+
+  Future<void> _seed(Database database) async {
+    await database.insert('app_state', {'id': 1, 'onboarded': 0});
+    await database.insert('profiles', MockData.defaultProfile.toMap());
+    for (final event in MockData.seedEvents()) {
+      await database.insert('events', event.toMap()..remove('id'));
+    }
+  }
+
+  Future<void> _migrate(Database database, int oldVersion, int newVersion) async {
+    if (oldVersion < 2 && newVersion >= 2) {
+      await _createIndexes(database);
+    }
   }
 
   Future<List<AppEvent>> fetchEvents() async {
@@ -70,22 +96,28 @@ class LocalDatabase {
 
   Future<int> insertEvent(AppEvent event) async {
     final database = await db;
-    return database.insert('events', event.toMap()..remove('id'));
+    return database.transaction(
+      (txn) => txn.insert('events', event.toMap()..remove('id')),
+    );
   }
 
   Future<void> updateEvent(AppEvent event) async {
     final database = await db;
-    await database.update(
-      'events',
-      event.toMap()..remove('id'),
-      where: 'id = ?',
-      whereArgs: [event.id],
-    );
+    await database.transaction((txn) async {
+      await txn.update(
+        'events',
+        event.toMap()..remove('id'),
+        where: 'id = ?',
+        whereArgs: [event.id],
+      );
+    });
   }
 
   Future<void> deleteEvent(int id) async {
     final database = await db;
-    await database.delete('events', where: 'id = ?', whereArgs: [id]);
+    await database.transaction((txn) async {
+      await txn.delete('events', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<UserProfile> fetchProfile() async {
@@ -96,7 +128,9 @@ class LocalDatabase {
 
   Future<void> updateProfile(UserProfile profile) async {
     final database = await db;
-    await database.update('profiles', profile.toMap(), where: 'id = 1');
+    await database.transaction((txn) async {
+      await txn.update('profiles', profile.toMap(), where: 'id = 1');
+    });
   }
 
   Future<bool> fetchOnboarded() async {
@@ -107,6 +141,8 @@ class LocalDatabase {
 
   Future<void> setOnboarded(bool value) async {
     final database = await db;
-    await database.update('app_state', {'onboarded': value ? 1 : 0}, where: 'id = 1');
+    await database.transaction((txn) async {
+      await txn.update('app_state', {'onboarded': value ? 1 : 0}, where: 'id = 1');
+    });
   }
 }

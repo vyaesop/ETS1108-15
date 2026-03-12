@@ -3,23 +3,26 @@ import 'package:flutter/material.dart';
 class AppEvent {
   final int? id;
   final String title;
+  final DateTime date;
   final TimeOfDay start;
   final TimeOfDay end;
   final String location;
-  final List<String> attendees;
-  final Color color;
-  final DateTime date;
+  final String attendees;
+  final int colorValue;
+  final bool reminder;
   final bool reminder;
 
   const AppEvent({
     this.id,
+    this.id,
     required this.title,
+    required this.date,
     required this.start,
     required this.end,
     required this.location,
     required this.attendees,
-    required this.color,
-    required this.date,
+    required this.colorValue,
+    required this.reminder,
     this.reminder = true,
   });
 
@@ -71,12 +74,14 @@ class EventDraft {
 }
 
 class UserProfile {
+  final int id;
   final String name;
   final String city;
   final String timezone;
-  final List<String> goals;
+  final String goals;
 
   const UserProfile({
+    required this.id,
     required this.name,
     required this.city,
     required this.timezone,

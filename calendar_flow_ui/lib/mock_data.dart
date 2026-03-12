@@ -3,53 +3,63 @@ import 'package:flutter/material.dart';
 import 'models/app_models.dart';
 
 class MockData {
-  static final today = DateTime(2026, 1, 25);
+  static DateTime get today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
 
-  static final profile = UserProfile(
+  static final defaultProfile = UserProfile(
+    id: 1,
     name: 'Aditya',
     city: 'Jakarta',
     timezone: 'GMT+7',
-    goals: const ['Meetings', 'Client calls', 'Personal plans'],
+    goals: 'Meetings|Client calls|Personal plans',
   );
 
-  static final events = <AppEvent>[
-    AppEvent(
-      title: 'You Have A Meeting',
-      start: const TimeOfDay(hour: 10, minute: 45),
-      end: const TimeOfDay(hour: 11, minute: 30),
-      location: 'Lotte Lounge',
-      attendees: const ['AL', 'RB', 'KT'],
-      color: const Color(0xFF9A6B72),
-      date: today,
-    ),
-    AppEvent(
-      title: 'You Have A Lunch W/ Client',
-      start: const TimeOfDay(hour: 12, minute: 10),
-      end: const TimeOfDay(hour: 13, minute: 0),
-      location: 'Rodist Resto',
-      attendees: const ['EM', 'YA'],
-      color: const Color(0xFFE16645),
-      date: today,
-    ),
-    AppEvent(
-      title: 'Call Wiz For Update',
-      start: const TimeOfDay(hour: 16, minute: 20),
-      end: const TimeOfDay(hour: 16, minute: 45),
-      location: 'Remote',
-      attendees: const ['AV', 'BC'],
-      color: const Color(0xFFAEC0C7),
-      date: DateTime(2026, 1, 26),
-    ),
-    AppEvent(
-      title: 'Web Update',
-      start: const TimeOfDay(hour: 15, minute: 0),
-      end: const TimeOfDay(hour: 16, minute: 0),
-      location: 'Studio',
-      attendees: const ['UI', 'DEV'],
-      color: const Color(0xFF8EC9CB),
-      date: DateTime(2026, 1, 29),
-    ),
-  ];
+  static List<AppEvent> seedEvents() {
+    return [
+      AppEvent(
+        title: 'You Have A Meeting',
+        start: const TimeOfDay(hour: 10, minute: 45),
+        end: const TimeOfDay(hour: 11, minute: 30),
+        location: 'Lotte Lounge',
+        attendees: 'AL,RB,KT',
+        colorValue: const Color(0xFF9A6B72).value,
+        date: today,
+        reminder: true,
+      ),
+      AppEvent(
+        title: 'You Have A Lunch W/ Client',
+        start: const TimeOfDay(hour: 12, minute: 10),
+        end: const TimeOfDay(hour: 13, minute: 0),
+        location: 'Rodist Resto',
+        attendees: 'EM,YA',
+        colorValue: const Color(0xFFE16645).value,
+        date: today,
+        reminder: true,
+      ),
+      AppEvent(
+        title: 'Call Wiz For Update',
+        start: const TimeOfDay(hour: 16, minute: 20),
+        end: const TimeOfDay(hour: 16, minute: 45),
+        location: 'Remote',
+        attendees: 'AV,BC',
+        colorValue: const Color(0xFFAEC0C7).value,
+        date: today.add(const Duration(days: 1)),
+        reminder: false,
+      ),
+      AppEvent(
+        title: 'Web Update',
+        start: const TimeOfDay(hour: 15, minute: 0),
+        end: const TimeOfDay(hour: 16, minute: 0),
+        location: 'Studio',
+        attendees: 'UI,DEV',
+        colorValue: const Color(0xFF8EC9CB).value,
+        date: today.add(const Duration(days: 4)),
+        reminder: true,
+      ),
+    ];
+  }
 
   static final monthPalette = <Color>[
     const Color(0xFFAED39A),
