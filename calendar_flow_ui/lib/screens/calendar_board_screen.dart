@@ -21,14 +21,17 @@ class CalendarBoardScreen extends StatefulWidget {
 
 class _CalendarBoardScreenState extends State<CalendarBoardScreen> {
   int mode = 1;
+  int monthOffset = 0;
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final selectedMonth = DateTime(now.year, now.month + monthOffset, 1);
+
     final filtered = switch (mode) {
       0 => widget.events.where((e) => _sameDay(e.date, today)).toList(),
-      1 => widget.events.where((e) => e.date.isAfter(today.subtract(const Duration(days: 1)))).toList(),
+      1 => widget.events.where((e) => e.date.year == selectedMonth.year && e.date.month == selectedMonth.month).toList(),
       _ => widget.events,
     };
 
@@ -52,19 +55,38 @@ class _CalendarBoardScreenState extends State<CalendarBoardScreen> {
                   onSelected: (v) => setState(() => mode = v),
                 ),
               ),
-              IconButton.filledTonal(onPressed: widget.onCreate, icon: const Icon(Icons.add)),
+              Tooltip(
+                message: 'Create event',
+                child: IconButton.filledTonal(onPressed: widget.onCreate, icon: const Icon(Icons.add)),
+              ),
             ],
           ),
           const SizedBox(height: 14),
-          const Center(
-            child: Text('DEC   <  JAN  >  FEB', style: TextStyle(fontSize: 30, color: Colors.black45, letterSpacing: 1.1)),
-          ),
+          if (mode == 1)
+            Row(
+              children: [
+                IconButton(onPressed: () => setState(() => monthOffset -= 1), icon: const Icon(Icons.chevron_left)),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      _monthLabel(selectedMonth),
+                      style: const TextStyle(fontSize: 30, color: Colors.black54, letterSpacing: 1.1),
+                    ),
+                  ),
+                ),
+                IconButton(onPressed: () => setState(() => monthOffset += 1), icon: const Icon(Icons.chevron_right)),
+              ],
+            )
+          else
+            const Center(
+              child: Text('Agenda', style: TextStyle(fontSize: 30, color: Colors.black45, letterSpacing: 1.1)),
+            ),
           const SizedBox(height: 8),
           if (days.isEmpty)
-            const Card(
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Text('No events in this time window.'),
+                padding: const EdgeInsets.all(20),
+                child: Text(mode == 1 ? 'No events in this month.' : 'No events in this time window.'),
               ),
             )
           else
@@ -119,4 +141,5 @@ class _CalendarBoardScreenState extends State<CalendarBoardScreen> {
   String _weekday(DateTime d) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday - 1];
   String _month(DateTime d) => ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][d.month - 1];
   String _fmt(TimeOfDay t) => '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+  String _monthLabel(DateTime d) => '${_month(d)} ${d.year}';
 }

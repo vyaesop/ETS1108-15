@@ -55,3 +55,7 @@ Changes follow strict order:
 flutter pub get
 flutter run
 ```
+
+
+## UX notes
+- A UX review summary and follow-up backlog is available at `docs/UX_AUDIT.md`.

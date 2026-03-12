@@ -16,6 +16,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final ctrl = TextEditingController();
   bool reminderOnly = false;
+  bool incompleteOnly = false;
   DateTimeRange? range;
 
   @override
@@ -33,11 +34,16 @@ class _SearchScreenState extends State<SearchScreen> {
           e.location.toLowerCase().contains(q) ||
           e.attendees.any((a) => a.toLowerCase().contains(q));
       final reminderMatch = !reminderOnly || e.reminder;
+      final incompleteMatch = !incompleteOnly || !e.completed;
       final dateMatch = range == null ||
-          (!_normalize(e.date).isBefore(_normalize(range!.start)) &&
-              !_normalize(e.date).isAfter(_normalize(range!.end)));
-      return textMatch && reminderMatch && dateMatch;
-    }).toList();
+          (!_normalize(e.date).isBefore(_normalize(range!.start)) && !_normalize(e.date).isAfter(_normalize(range!.end)));
+      return textMatch && reminderMatch && dateMatch && incompleteMatch;
+    }).toList()
+      ..sort((a, b) {
+        final dateSort = a.date.compareTo(b.date);
+        if (dateSort != 0) return dateSort;
+        return (a.start.hour * 60 + a.start.minute).compareTo(b.start.hour * 60 + b.start.minute);
+      });
 
     return Scaffold(
       appBar: AppBar(title: const Text('Search & Filters')),
@@ -65,10 +71,13 @@ class _SearchScreenState extends State<SearchScreen> {
                 onSelected: (v) => setState(() => reminderOnly = v),
               ),
               FilterChip(
+                selected: incompleteOnly,
+                label: const Text('Incomplete only'),
+                onSelected: (v) => setState(() => incompleteOnly = v),
+              ),
+              FilterChip(
                 selected: range != null,
-                label: Text(range == null
-                    ? 'Date range'
-                    : '${range!.start.month}/${range!.start.day} - ${range!.end.month}/${range!.end.day}'),
+                label: Text(range == null ? 'Date range' : '${range!.start.month}/${range!.start.day} - ${range!.end.month}/${range!.end.day}'),
                 onSelected: (_) async {
                   final now = DateTime.now();
                   final picked = await showDateRangePicker(
@@ -84,6 +93,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 onPressed: () => setState(() {
                   ctrl.clear();
                   reminderOnly = false;
+                  incompleteOnly = false;
                   range = null;
                 }),
                 label: const Text('Clear all'),

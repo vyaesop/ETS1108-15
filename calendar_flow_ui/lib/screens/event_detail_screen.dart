@@ -10,11 +10,13 @@ class EventDetailScreen extends StatefulWidget {
     required this.event,
     required this.onDelete,
     required this.onSave,
+    required this.onToggleCompleted,
   });
 
   final AppEvent event;
   final Future<void> Function() onDelete;
   final Future<void> Function(AppEvent event) onSave;
+  final Future<void> Function(AppEvent event, bool completed) onToggleCompleted;
 
   @override
   State<EventDetailScreen> createState() => _EventDetailScreenState();
@@ -88,7 +90,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     label: const Text('Edit'),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: _toggleCompleted,
+                    icon: Icon(current.completed ? Icons.undo : Icons.check),
+                    label: Text(current.completed ? 'Undo' : 'Complete'),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
@@ -115,6 +125,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (!mounted) return;
     setState(() => current = edited);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event updated in SQLite.')));
+  }
+
+
+  Future<void> _toggleCompleted() async {
+    final next = !current.completed;
+    await widget.onToggleCompleted(current, next);
+    if (!mounted) return;
+    setState(() => current = current.copyWith(completed: next));
   }
 
   Future<void> _deleteEvent() async {

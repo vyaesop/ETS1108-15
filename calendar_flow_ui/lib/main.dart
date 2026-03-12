@@ -110,6 +110,7 @@ class _AppShellState extends State<AppShell> {
       MonthOverviewScreen(
         onMonthTap: (_) => setState(() => navIndex = 1),
         onJumpToday: () => setState(() => navIndex = 0),
+        onCreate: _openCreate,
         events: widget.state.events,
       ),
       ProfileScreen(
@@ -142,6 +143,7 @@ class _AppShellState extends State<AppShell> {
                 ),
               ),
             ),
+          if (widget.state.mutating) const LinearProgressIndicator(minHeight: 2),
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
@@ -196,6 +198,7 @@ class _AppShellState extends State<AppShell> {
             }
           },
           onSave: widget.state.updateEvent,
+          onToggleCompleted: widget.state.toggleEventCompleted,
         ),
       ),
     );

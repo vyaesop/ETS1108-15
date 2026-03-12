@@ -156,10 +156,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: Text(
                     '${DateFormat.Hm().format(entry.start)} - ${DateFormat.Hm().format(entry.end)}  (${event.effectiveDurationMinutes}m)',
                   ),
-                  trailing: FilledButton.tonal(
-                    onPressed: event.id == null ? null : () => widget.onToggleFocus(event),
-                    child: Text(active ? 'Stop' : 'Focus'),
-                  ),
+                  trailing: event.completed
+                      ? const Chip(label: Text('Done'))
+                      : FilledButton.tonal(
+                          onPressed: event.id == null ? null : () => widget.onToggleFocus(event),
+                          child: Text(active ? 'Stop' : 'Focus'),
+                        ),
                 ),
               );
             }),
