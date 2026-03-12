@@ -16,6 +16,8 @@ class _FakeEventRepository implements EventRepository {
       attendees: ['AA'],
       colorValue: 0xFFFFFFFF,
       reminder: true,
+      durationMinutes: 30,
+      completed: false,
     ),
   ];
 
@@ -40,6 +42,17 @@ class _FakeEventRepository implements EventRepository {
   @override
   Future<void> resetAllData() async {
     _events = [];
+  }
+
+  @override
+  Future<int> startFocusSession(int eventId) async => 99;
+
+  @override
+  Future<void> endFocusSession(int sessionId) async {}
+
+  @override
+  Future<DailyProductivityStats> fetchDailyStats(DateTime date) async {
+    return DailyProductivityStats.empty(date);
   }
 }
 
@@ -87,5 +100,38 @@ void main() {
 
     await appState.completeOnboarding();
     expect(appState.onboarded, isTrue);
+  });
+
+  test('rollover moves old unfinished events to today', () async {
+    final old = DateTime.now().subtract(const Duration(days: 2));
+    final repo = _FakeEventRepository()
+      .._events = [
+        AppEvent(
+          id: 3,
+          title: 'Old',
+          date: old,
+          start: const TimeOfDay(hour: 9, minute: 0),
+          end: const TimeOfDay(hour: 10, minute: 0),
+          location: 'X',
+          attendees: const ['AA'],
+          colorValue: 0xFFFFFFFF,
+          reminder: false,
+          durationMinutes: 30,
+          completed: false,
+        )
+      ];
+
+    final appState = AppState(
+      eventRepository: repo,
+      profileRepository: _FakeProfileRepository(),
+      appStateRepository: _FakeAppStateRepository(),
+    );
+
+    await appState.initialize();
+    final today = DateTime.now();
+    final rolled = appState.events.first;
+    expect(rolled.date.year, today.year);
+    expect(rolled.date.month, today.month);
+    expect(rolled.date.day, today.day);
   });
 }

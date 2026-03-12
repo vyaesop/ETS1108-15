@@ -81,12 +81,26 @@ class _AppShellState extends State<AppShell> {
       return OnboardingScreen(onStart: widget.state.completeOnboarding);
     }
 
+    final today = DateTime.now();
+    final todayEvents = widget.state.events
+        .where((e) => e.date.year == today.year && e.date.month == today.month && e.date.day == today.day)
+        .toList();
+    final completedCount = todayEvents.where((e) => e.completed).length;
+    final completionProgress = todayEvents.isEmpty ? 0.0 : completedCount / todayEvents.length;
+
     final screens = [
       HomeScreen(
         events: widget.state.events,
         onTapEvent: _openEvent,
         onCreate: _openCreate,
         onOpenSearch: _openSearch,
+        todayPlan: widget.state.buildDailyPlan(today),
+        completionProgress: completionProgress,
+        tasksCompletedToday: widget.state.todayStats.tasksCompleted,
+        focusMinutesToday: widget.state.todayStats.focusMinutes,
+        activeFocusEventIds: widget.state.activeFocusEventIds,
+        onToggleCompleted: widget.state.toggleEventCompleted,
+        onToggleFocus: _toggleFocus,
       ),
       CalendarBoardScreen(
         events: widget.state.events,
@@ -185,5 +199,14 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
     );
+  }
+
+  Future<void> _toggleFocus(AppEvent event) async {
+    if (event.id == null) return;
+    if (widget.state.activeFocusEventIds.contains(event.id)) {
+      await widget.state.endFocusForEvent(event.id!);
+    } else {
+      await widget.state.startFocusForEvent(event.id!);
+    }
   }
 }

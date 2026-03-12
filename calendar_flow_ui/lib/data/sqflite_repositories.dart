@@ -31,6 +31,21 @@ class SqfliteEventRepository implements EventRepository {
   Future<void> resetAllData() async {
     await _db.resetAllData();
   }
+
+  @override
+  Future<int> startFocusSession(int eventId) async {
+    return _db.startFocusSession(eventId);
+  }
+
+  @override
+  Future<void> endFocusSession(int sessionId) async {
+    await _db.endFocusSession(sessionId);
+  }
+
+  @override
+  Future<DailyProductivityStats> fetchDailyStats(DateTime date) async {
+    return _db.fetchDailyStats(date);
+  }
 }
 
 class SqfliteProfileRepository implements ProfileRepository {

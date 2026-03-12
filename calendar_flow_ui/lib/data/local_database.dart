@@ -9,7 +9,7 @@ class LocalDatabase {
   static final LocalDatabase instance = LocalDatabase._();
 
   static const _dbName = 'chrono_ui.db';
-  static const _dbVersion = 3;
+  static const _dbVersion = 5;
 
   Database? _db;
 
@@ -61,7 +61,9 @@ class LocalDatabase {
         end_minutes INTEGER NOT NULL,
         location TEXT NOT NULL,
         color_value INTEGER NOT NULL,
-        reminder INTEGER NOT NULL
+        reminder INTEGER NOT NULL,
+        duration_minutes INTEGER NOT NULL DEFAULT 30,
+        completed INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -71,6 +73,25 @@ class LocalDatabase {
         event_id INTEGER NOT NULL,
         attendee TEXT NOT NULL,
         FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE focus_sessions(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id INTEGER NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT,
+        duration_minutes INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await database.execute('''
+      CREATE TABLE daily_stats(
+        date TEXT PRIMARY KEY,
+        tasks_completed INTEGER NOT NULL DEFAULT 0,
+        focus_minutes INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -117,21 +138,53 @@ class LocalDatabase {
         )
       ''');
 
-      final eventRows = await database.query('events', columns: ['id', 'attendees']);
-      for (final row in eventRows) {
-        final eventId = row['id'] as int;
-        final serialized = (row['attendees'] as String?) ?? '';
-        final parsed = serialized
-            .split(',')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
-        for (final attendee in parsed) {
-          await database.insert('event_attendees', {'event_id': eventId, 'attendee': attendee});
+      final columns = await database.rawQuery("PRAGMA table_info(events)");
+      final hasLegacyAttendees = columns.any((c) => c['name'] == 'attendees');
+      if (hasLegacyAttendees) {
+        final eventRows = await database.query('events', columns: ['id', 'attendees']);
+        for (final row in eventRows) {
+          final eventId = row['id'] as int;
+          final serialized = (row['attendees'] as String?) ?? '';
+          final parsed = serialized
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+          for (final attendee in parsed) {
+            await database.insert('event_attendees', {'event_id': eventId, 'attendee': attendee});
+          }
         }
       }
 
       await _createAttendeeIndex(database);
+    }
+
+    if (oldVersion < 4 && newVersion >= 4) {
+      await database.execute('ALTER TABLE events ADD COLUMN duration_minutes INTEGER');
+      await database.execute('ALTER TABLE events ADD COLUMN completed INTEGER DEFAULT 0');
+      await database.execute('UPDATE events SET duration_minutes = 30 WHERE duration_minutes IS NULL');
+      await database.execute('UPDATE events SET completed = 0 WHERE completed IS NULL');
+    }
+
+    if (oldVersion < 5 && newVersion >= 5) {
+      await database.execute('''
+        CREATE TABLE IF NOT EXISTS focus_sessions(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_id INTEGER NOT NULL,
+          start_time TEXT NOT NULL,
+          end_time TEXT,
+          duration_minutes INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+        )
+      ''');
+
+      await database.execute('''
+        CREATE TABLE IF NOT EXISTS daily_stats(
+          date TEXT PRIMARY KEY,
+          tasks_completed INTEGER NOT NULL DEFAULT 0,
+          focus_minutes INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
     }
   }
 
@@ -164,6 +217,9 @@ class LocalDatabase {
   Future<void> updateEvent(AppEvent event) async {
     final database = await db;
     await database.transaction((txn) async {
+      final before = await txn.query('events', columns: ['completed'], where: 'id = ?', whereArgs: [event.id], limit: 1);
+      final previousCompleted = before.isNotEmpty && ((before.first['completed'] ?? 0) as int) == 1;
+
       await txn.update(
         'events',
         event.toMap()..remove('id'),
@@ -172,6 +228,15 @@ class LocalDatabase {
       );
       if (event.id != null) {
         await _replaceAttendees(txn, event.id!, event.attendees);
+      }
+
+      if (!previousCompleted && event.completed) {
+        await _incrementDailyStats(
+          txn,
+          DateTime.now(),
+          tasksCompletedDelta: 1,
+          focusMinutesDelta: 0,
+        );
       }
     });
   }
@@ -191,10 +256,87 @@ class LocalDatabase {
     });
   }
 
+  Future<int> startFocusSession(int eventId) async {
+    final database = await db;
+    return database.transaction((txn) async {
+      final id = await txn.insert('focus_sessions', {
+        'event_id': eventId,
+        'start_time': DateTime.now().toIso8601String(),
+        'end_time': null,
+        'duration_minutes': 0,
+      });
+      return id;
+    });
+  }
+
+  Future<void> endFocusSession(int sessionId) async {
+    final database = await db;
+    await database.transaction((txn) async {
+      final rows = await txn.query('focus_sessions', where: 'id = ?', whereArgs: [sessionId], limit: 1);
+      if (rows.isEmpty) return;
+
+      final row = rows.first;
+      final start = DateTime.parse(row['start_time'] as String);
+      final end = DateTime.now();
+      final duration = end.difference(start).inMinutes <= 0 ? 1 : end.difference(start).inMinutes;
+
+      await txn.update(
+        'focus_sessions',
+        {
+          'end_time': end.toIso8601String(),
+          'duration_minutes': duration,
+        },
+        where: 'id = ?',
+        whereArgs: [sessionId],
+      );
+
+      await _incrementDailyStats(txn, end, tasksCompletedDelta: 0, focusMinutesDelta: duration);
+    });
+  }
+
+  Future<void> _incrementDailyStats(
+    Transaction txn,
+    DateTime day, {
+    required int tasksCompletedDelta,
+    required int focusMinutesDelta,
+  }) async {
+    final key = DateTime(day.year, day.month, day.day).toIso8601String();
+    final rows = await txn.query('daily_stats', where: 'date = ?', whereArgs: [key], limit: 1);
+
+    if (rows.isEmpty) {
+      await txn.insert('daily_stats', {
+        'date': key,
+        'tasks_completed': tasksCompletedDelta,
+        'focus_minutes': focusMinutesDelta,
+      });
+      return;
+    }
+
+    final current = rows.first;
+    await txn.update(
+      'daily_stats',
+      {
+        'tasks_completed': (current['tasks_completed'] as int) + tasksCompletedDelta,
+        'focus_minutes': (current['focus_minutes'] as int) + focusMinutesDelta,
+      },
+      where: 'date = ?',
+      whereArgs: [key],
+    );
+  }
+
+  Future<DailyProductivityStats> fetchDailyStats(DateTime date) async {
+    final database = await db;
+    final key = DateTime(date.year, date.month, date.day).toIso8601String();
+    final rows = await database.query('daily_stats', where: 'date = ?', whereArgs: [key], limit: 1);
+    if (rows.isEmpty) return DailyProductivityStats.empty(date);
+    return DailyProductivityStats.fromMap(rows.first);
+  }
 
   Future<void> resetAllData() async {
     final database = await db;
     await database.transaction((txn) async {
+      await txn.delete('focus_sessions');
+      await txn.delete('daily_stats');
       await txn.delete('event_attendees');
       await txn.delete('events');
       await txn.delete('profiles');

@@ -66,6 +66,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               subtitle: Text(current.reminder ? 'Enabled (15 minutes before)' : 'Disabled'),
               trailing: Icon(current.reminder ? Icons.notifications_active_outlined : Icons.notifications_off_outlined),
             ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Duration'),
+              subtitle: Text('${current.effectiveDurationMinutes} minutes'),
+              trailing: Icon(current.completed ? Icons.check_circle : Icons.radio_button_unchecked),
+            ),
             const ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text('Storage'),

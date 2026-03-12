@@ -10,6 +10,8 @@ class AppEvent {
   final List<String> attendees;
   final int colorValue;
   final bool reminder;
+  final int? durationMinutes;
+  final bool completed;
 
   const AppEvent({
     this.id,
@@ -21,7 +23,11 @@ class AppEvent {
     required this.attendees,
     required this.colorValue,
     required this.reminder,
+    this.durationMinutes,
+    this.completed = false,
   });
+
+  int get effectiveDurationMinutes => durationMinutes ?? 30;
 
   Color get color => Color(colorValue);
 
@@ -35,6 +41,8 @@ class AppEvent {
       'location': location,
       'color_value': colorValue,
       'reminder': reminder ? 1 : 0,
+      'duration_minutes': effectiveDurationMinutes,
+      'completed': completed ? 1 : 0,
     };
   }
 
@@ -48,6 +56,8 @@ class AppEvent {
     List<String>? attendees,
     int? colorValue,
     bool? reminder,
+    int? durationMinutes,
+    bool? completed,
   }) {
     return AppEvent(
       id: id ?? this.id,
@@ -59,12 +69,16 @@ class AppEvent {
       attendees: attendees ?? this.attendees,
       colorValue: colorValue ?? this.colorValue,
       reminder: reminder ?? this.reminder,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      completed: completed ?? this.completed,
     );
   }
 
   static AppEvent fromMap(Map<String, Object?> map, {List<String> attendees = const []}) {
     final startMinutes = map['start_minutes'] as int;
     final endMinutes = map['end_minutes'] as int;
+    final rawDuration = map['duration_minutes'];
+
     return AppEvent(
       id: map['id'] as int,
       title: map['title'] as String,
@@ -75,8 +89,58 @@ class AppEvent {
       attendees: attendees,
       colorValue: map['color_value'] as int,
       reminder: (map['reminder'] as int) == 1,
+      durationMinutes: rawDuration == null ? 30 : rawDuration as int,
+      completed: ((map['completed'] ?? 0) as int) == 1,
     );
   }
+}
+
+class FocusSession {
+  final int id;
+  final int eventId;
+  final DateTime startTime;
+  final DateTime? endTime;
+  final int durationMinutes;
+
+  const FocusSession({
+    required this.id,
+    required this.eventId,
+    required this.startTime,
+    required this.endTime,
+    required this.durationMinutes,
+  });
+
+  static FocusSession fromMap(Map<String, Object?> map) => FocusSession(
+        id: map['id'] as int,
+        eventId: map['event_id'] as int,
+        startTime: DateTime.parse(map['start_time'] as String),
+        endTime: map['end_time'] == null ? null : DateTime.parse(map['end_time'] as String),
+        durationMinutes: map['duration_minutes'] as int,
+      );
+}
+
+class DailyProductivityStats {
+  final DateTime date;
+  final int tasksCompleted;
+  final int focusMinutes;
+
+  const DailyProductivityStats({
+    required this.date,
+    required this.tasksCompleted,
+    required this.focusMinutes,
+  });
+
+  static DailyProductivityStats fromMap(Map<String, Object?> map) => DailyProductivityStats(
+        date: DateTime.parse(map['date'] as String),
+        tasksCompleted: map['tasks_completed'] as int,
+        focusMinutes: map['focus_minutes'] as int,
+      );
+
+  static DailyProductivityStats empty(DateTime date) => DailyProductivityStats(
+        date: DateTime(date.year, date.month, date.day),
+        tasksCompleted: 0,
+        focusMinutes: 0,
+      );
 }
 
 class UserProfile {

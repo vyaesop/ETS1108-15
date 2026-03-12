@@ -14,6 +14,8 @@ void main() {
       attendees: ['AL', 'BO'],
       colorValue: 0xFF000000,
       reminder: true,
+      durationMinutes: 45,
+      completed: true,
     );
 
     final mapped = event.toMap();
@@ -24,5 +26,24 @@ void main() {
     expect(decoded.location, event.location);
     expect(decoded.attendees, event.attendees);
     expect(decoded.reminder, isTrue);
+    expect(decoded.durationMinutes, 45);
+    expect(decoded.completed, isTrue);
+  });
+
+  test('duration defaults to 30 when absent', () {
+    final map = {
+      'id': 1,
+      'title': 'T',
+      'date': DateTime(2026, 1, 1).toIso8601String(),
+      'start_minutes': 540,
+      'end_minutes': 570,
+      'location': 'A',
+      'color_value': 0xFF000000,
+      'reminder': 0,
+      'completed': 0,
+    };
+
+    final decoded = AppEvent.fromMap(map, attendees: const []);
+    expect(decoded.effectiveDurationMinutes, 30);
   });
 }

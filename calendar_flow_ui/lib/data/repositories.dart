@@ -6,6 +6,9 @@ abstract class EventRepository {
   Future<void> updateEvent(AppEvent event);
   Future<void> deleteEvent(int id);
   Future<void> resetAllData();
+  Future<int> startFocusSession(int eventId);
+  Future<void> endFocusSession(int sessionId);
+  Future<DailyProductivityStats> fetchDailyStats(DateTime date);
 }
 
 abstract class ProfileRepository {

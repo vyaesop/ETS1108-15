@@ -17,10 +17,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   late TimeOfDay end;
   late bool reminder;
   late int colorValue;
+  late bool completed;
 
   final titleCtrl = TextEditingController();
   final locationCtrl = TextEditingController();
   final attendeesCtrl = TextEditingController();
+  final durationCtrl = TextEditingController();
 
   final colors = const [
     Color(0xFFE8C47D),
@@ -39,9 +41,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     end = initial?.end ?? const TimeOfDay(hour: 10, minute: 0);
     reminder = initial?.reminder ?? true;
     colorValue = initial?.colorValue ?? const Color(0xFFE8C47D).value;
+    completed = initial?.completed ?? false;
     titleCtrl.text = initial?.title ?? '';
     locationCtrl.text = initial?.location ?? '';
     attendeesCtrl.text = initial == null ? 'ME' : initial.attendees.join(', ');
+    durationCtrl.text = (initial?.durationMinutes ?? 30).toString();
   }
 
   @override
@@ -49,6 +53,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     titleCtrl.dispose();
     locationCtrl.dispose();
     attendeesCtrl.dispose();
+    durationCtrl.dispose();
     super.dispose();
   }
 
@@ -66,6 +71,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           TextField(controller: locationCtrl, decoration: const InputDecoration(labelText: 'Location')),
           const SizedBox(height: 10),
           TextField(controller: attendeesCtrl, decoration: const InputDecoration(labelText: 'Attendees (comma separated initials)')),
+          const SizedBox(height: 10),
+          TextField(
+            controller: durationCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Estimated duration (minutes)'),
+          ),
           const SizedBox(height: 12),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -120,6 +131,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             onChanged: (v) => setState(() => reminder = v),
             title: const Text('Enable reminder'),
           ),
+          SwitchListTile(
+            value: completed,
+            onChanged: (v) => setState(() => completed = v),
+            title: const Text('Mark as completed'),
+          ),
           const SizedBox(height: 24),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
@@ -127,6 +143,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               final title = titleCtrl.text.trim();
               if (title.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Title is required.')));
+                return;
+              }
+
+              final parsedDuration = int.tryParse(durationCtrl.text.trim()) ?? 30;
+              if (parsedDuration <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Duration must be a positive number.')),
+                );
                 return;
               }
 
@@ -153,6 +177,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   colorValue: colorValue,
                   date: date,
                   reminder: reminder,
+                  durationMinutes: parsedDuration,
+                  completed: completed,
                 ),
               );
             },

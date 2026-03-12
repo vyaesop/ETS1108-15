@@ -13,32 +13,33 @@ A personal scheduling planner for meetings, calls, reminders, and timezone-aware
   - `profiles` (user profile/settings)
   - `events` (event records)
   - `event_attendees` (normalized attendee records)
+  - `focus_sessions` (focus timer logs)
+  - `daily_stats` (daily productivity aggregates)
 - Seeds profile and starter events on first run.
 
-## Phase 1 hardening
-- Repository abstraction layer (`EventRepository`, `ProfileRepository`, `AppStateRepository`).
-- Sqflite repository implementations to decouple state from persistence.
-- Database lifecycle upgrades (`onUpgrade`, schema versioning, indexes).
-- Guarded app-state operations with surfaced error messaging.
+## Productivity planner (V1)
+- Event duration support (`duration_minutes`) with default 30 minutes.
+- Daily auto planner (`generateDailySchedule`) sequencing incomplete tasks from 09:00.
+- Smart rollover of incomplete past events to today on startup.
+- Focus timer sessions with persisted minute totals.
+- Daily productivity stats for completed tasks and focus minutes.
+- Today screen enhancements:
+  - Today's Plan timeline
+  - per-task focus start/stop
+  - completion progress indicator
 
-## Phase 2 improvements
-- Data normalization with `event_attendees` migration support.
-- Advanced search filters (text + reminder + date range).
-- Month cards now show real event density badges.
-- Event/profile validation improvements.
-
-## Phase 3 completion
-- Added CI workflow to run `flutter pub get`, `flutter analyze`, and `flutter test`.
-- Added destructive-action safeguards (delete confirmation, reset-data confirmation).
-- Added local data reset flow (reseed profile/events + onboarding reset).
-- Closed UX gaps:
-  - month view now has a clear “Today” jump action
-  - search has “Clear all” filter action
-- Added flow-by-flow QA checklist for manual verification.
+## Architecture pattern
+Changes follow strict order:
+1. database migration
+2. repository interface
+3. sqflite repository implementation
+4. AppState integration
+5. UI integration
+6. tests
 
 ## Included user flows
 - Onboarding (persisted)
-- Today view (filter and empty states)
+- Today view (filters, cards, productivity timeline)
 - Calendar board view
 - Month overview grid
 - Search flow with filters

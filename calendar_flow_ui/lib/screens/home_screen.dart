@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/app_models.dart';
+import '../services/daily_planner.dart';
 import '../widgets/common_widgets.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -9,6 +10,13 @@ class HomeScreen extends StatefulWidget {
   final ValueChanged<AppEvent> onTapEvent;
   final VoidCallback onCreate;
   final VoidCallback onOpenSearch;
+  final List<ScheduledEvent> todayPlan;
+  final double completionProgress;
+  final int tasksCompletedToday;
+  final int focusMinutesToday;
+  final Set<int> activeFocusEventIds;
+  final Future<void> Function(AppEvent event, bool completed) onToggleCompleted;
+  final Future<void> Function(AppEvent event) onToggleFocus;
 
   const HomeScreen({
     super.key,
@@ -16,6 +24,13 @@ class HomeScreen extends StatefulWidget {
     required this.onTapEvent,
     required this.onCreate,
     required this.onOpenSearch,
+    required this.todayPlan,
+    required this.completionProgress,
+    required this.tasksCompletedToday,
+    required this.focusMinutesToday,
+    required this.activeFocusEventIds,
+    required this.onToggleCompleted,
+    required this.onToggleFocus,
   });
 
   @override
@@ -100,6 +115,54 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           else
             ...shown.map((e) => EventCard(event: e, onTap: () => widget.onTapEvent(e))),
+          const SizedBox(height: 16),
+          const Text('Today\'s Plan', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LinearProgressIndicator(value: widget.completionProgress),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Completed: ${widget.tasksCompletedToday} • Focus: ${widget.focusMinutesToday} mins',
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (widget.todayPlan.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('No incomplete tasks to auto-plan today.'),
+            )
+          else
+            ...widget.todayPlan.map((entry) {
+              final event = entry.event;
+              final active = event.id != null && widget.activeFocusEventIds.contains(event.id);
+              return Card(
+                child: ListTile(
+                  leading: Checkbox(
+                    value: event.completed,
+                    onChanged: (v) {
+                      if (v == null) return;
+                      widget.onToggleCompleted(event, v);
+                    },
+                  ),
+                  title: Text(event.title),
+                  subtitle: Text(
+                    '${DateFormat.Hm().format(entry.start)} - ${DateFormat.Hm().format(entry.end)}  (${event.effectiveDurationMinutes}m)',
+                  ),
+                  trailing: FilledButton.tonal(
+                    onPressed: event.id == null ? null : () => widget.onToggleFocus(event),
+                    child: Text(active ? 'Stop' : 'Focus'),
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );

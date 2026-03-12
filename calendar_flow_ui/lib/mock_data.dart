@@ -20,6 +20,7 @@ class MockData {
     return [
       AppEvent(
         title: 'You Have A Meeting',
+        durationMinutes: 45,
         start: const TimeOfDay(hour: 10, minute: 45),
         end: const TimeOfDay(hour: 11, minute: 30),
         location: 'Lotte Lounge',
@@ -30,6 +31,7 @@ class MockData {
       ),
       AppEvent(
         title: 'You Have A Lunch W/ Client',
+        durationMinutes: 50,
         start: const TimeOfDay(hour: 12, minute: 10),
         end: const TimeOfDay(hour: 13, minute: 0),
         location: 'Rodist Resto',
@@ -40,6 +42,7 @@ class MockData {
       ),
       AppEvent(
         title: 'Call Wiz For Update',
+        durationMinutes: 25,
         start: const TimeOfDay(hour: 16, minute: 20),
         end: const TimeOfDay(hour: 16, minute: 45),
         location: 'Remote',
@@ -50,6 +53,7 @@ class MockData {
       ),
       AppEvent(
         title: 'Web Update',
+        durationMinutes: 60,
         start: const TimeOfDay(hour: 15, minute: 0),
         end: const TimeOfDay(hour: 16, minute: 0),
         location: 'Studio',
