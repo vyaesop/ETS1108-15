@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/app_models.dart';
 
@@ -65,7 +66,7 @@ class EventCard extends StatelessWidget {
                     style: TextStyle(fontSize: 32, height: 1, color: textColor, fontWeight: FontWeight.w600),
                   ),
                 ),
-                Text(_fmtTime(event.start), style: TextStyle(color: textColor.withOpacity(0.85))),
+                Text(DateFormat.jm().format(DateTime(0, 1, 1, event.start.hour, event.start.minute)), style: TextStyle(color: textColor.withOpacity(0.85))),
               ],
             ),
             const SizedBox(height: 20),
@@ -76,7 +77,7 @@ class EventCard extends StatelessWidget {
                 Expanded(
                   child: Text(event.location, style: TextStyle(color: textColor.withOpacity(0.9))),
                 ),
-                ...event.attendees.take(3).map((a) => Container(
+                ...event.attendeeList.take(3).map((a) => Container(
                       width: 24,
                       height: 24,
                       margin: const EdgeInsets.only(left: 4),
@@ -94,12 +95,5 @@ class EventCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _fmtTime(TimeOfDay value) {
-    final h = value.hourOfPeriod == 0 ? 12 : value.hourOfPeriod;
-    final m = value.minute.toString().padLeft(2, '0');
-    final p = value.period == DayPeriod.am ? 'AM' : 'PM';
-    return '$h:$m $p';
   }
 }

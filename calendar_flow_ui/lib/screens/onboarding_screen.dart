@@ -28,7 +28,7 @@ class OnboardingScreen extends StatelessWidget {
                 color: const Color(0xFFEEECE4),
               ),
               child: const Text(
-                'Use Today, Calendar, and Month views. All flows are UI-only and use local mock state.',
+                'Use Today, Calendar, and Month views. Your profile and events are saved locally on this device.',
                 style: TextStyle(fontSize: 15),
               ),
             ),

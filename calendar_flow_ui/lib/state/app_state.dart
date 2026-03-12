@@ -1,57 +1,96 @@
 import 'package:flutter/material.dart';
 
-import '../data/local_database.dart';
+import '../data/repositories.dart';
 import '../models/app_models.dart';
 
 class AppState extends ChangeNotifier {
-  AppState(this._database);
+  AppState({
+    required EventRepository eventRepository,
+    required ProfileRepository profileRepository,
+    required AppStateRepository appStateRepository,
+  })  : _eventRepository = eventRepository,
+        _profileRepository = profileRepository,
+        _appStateRepository = appStateRepository;
 
-  final LocalDatabase _database;
+  final EventRepository _eventRepository;
+  final ProfileRepository _profileRepository;
+  final AppStateRepository _appStateRepository;
 
   bool loading = true;
   bool onboarded = false;
+  bool mutating = false;
+  String? lastError;
   List<AppEvent> events = [];
   UserProfile? profile;
 
   Future<void> initialize() async {
-    loading = true;
-    notifyListeners();
+    await _runGuarded(() async {
+      loading = true;
+      notifyListeners();
 
-    onboarded = await _database.fetchOnboarded();
-    events = await _database.fetchEvents();
-    profile = await _database.fetchProfile();
+      onboarded = await _appStateRepository.fetchOnboarded();
+      events = await _eventRepository.fetchEvents();
+      profile = await _profileRepository.fetchProfile();
 
-    loading = false;
-    notifyListeners();
+      loading = false;
+    }, isBoot: true);
   }
 
   Future<void> completeOnboarding() async {
-    onboarded = true;
-    await _database.setOnboarded(true);
-    notifyListeners();
+    await _runGuarded(() async {
+      onboarded = true;
+      await _appStateRepository.setOnboarded(true);
+    });
   }
 
   Future<void> createEvent(AppEvent event) async {
-    await _database.insertEvent(event);
-    events = await _database.fetchEvents();
-    notifyListeners();
+    await _runGuarded(() async {
+      await _eventRepository.createEvent(event);
+      events = await _eventRepository.fetchEvents();
+    });
   }
 
   Future<void> updateEvent(AppEvent event) async {
-    await _database.updateEvent(event);
-    events = await _database.fetchEvents();
-    notifyListeners();
+    await _runGuarded(() async {
+      await _eventRepository.updateEvent(event);
+      events = await _eventRepository.fetchEvents();
+    });
   }
 
   Future<void> deleteEvent(int id) async {
-    await _database.deleteEvent(id);
-    events = await _database.fetchEvents();
-    notifyListeners();
+    await _runGuarded(() async {
+      await _eventRepository.deleteEvent(id);
+      events = await _eventRepository.fetchEvents();
+    });
   }
 
   Future<void> saveProfile(UserProfile next) async {
-    await _database.updateProfile(next);
-    profile = await _database.fetchProfile();
+    await _runGuarded(() async {
+      await _profileRepository.updateProfile(next);
+      profile = await _profileRepository.fetchProfile();
+    });
+  }
+
+  void clearError() {
+    lastError = null;
     notifyListeners();
+  }
+
+  Future<void> _runGuarded(Future<void> Function() task, {bool isBoot = false}) async {
+    try {
+      lastError = null;
+      if (!isBoot) {
+        mutating = true;
+      }
+      await task();
+    } catch (error) {
+      lastError = 'Operation failed: $error';
+      if (isBoot) {
+        loading = false;
+      }
+    } finally {
+      mutating = false;
+      notifyListeners();
+    }
   }
 }
