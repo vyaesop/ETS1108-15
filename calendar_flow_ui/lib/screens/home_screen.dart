@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../models/app_models.dart';
 import '../widgets/common_widgets.dart';
@@ -27,15 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-
-    final shown = switch (mode) {
-      0 => widget.events.where((e) => _sameDay(e.date, today)).toList(),
-      1 => widget.events.where((e) => _sameDay(e.date, tomorrow)).toList(),
-      _ => widget.events,
-    };
+    final today = DateTime.now();
+    final shown = mode == 0
+        ? widget.events.where((e) => _sameDay(e.date, today)).toList()
+        : mode == 1
+            ? widget.events.where((e) => e.date.isAfter(today.subtract(const Duration(days: 1)))).toList()
+            : widget.events;
 
     return SafeArea(
       child: ListView(
@@ -74,19 +70,16 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Expanded(
-                child: Text(
-                  '${DateFormat.d().format(today)}\n${DateFormat.MMMM().format(today).toUpperCase()}',
-                  style: const TextStyle(fontSize: 54, height: .9, fontWeight: FontWeight.w600),
-                ),
+              const Expanded(
+                child: Text('25\nJANUARY', style: TextStyle(fontSize: 54, height: .9, fontWeight: FontWeight.w600)),
               ),
               Container(width: 1, height: 70, color: Colors.black26),
               const SizedBox(width: 14),
-              Column(
+              const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(DateFormat.Hm().format(now), style: const TextStyle(fontSize: 32)),
-                  const Text('Local time', style: TextStyle(color: Colors.black54)),
+                  Text('08.00', style: TextStyle(fontSize: 32)),
+                  Text('Indonesia', style: TextStyle(color: Colors.black54)),
                 ],
               ),
             ],

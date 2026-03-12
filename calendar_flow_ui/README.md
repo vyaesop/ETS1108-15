@@ -1,33 +1,19 @@
-# Chrono UI (Flutter + SQLite)
+# Chrono UI (Flutter, UI-only)
 
-This app recreates and extends the Dribbble-style calendar/task design and now runs with a **local SQLite backend**.
+This app recreates and extends the Dribbble-style calendar/task design you shared.
 
 ## What this app is
-A personal scheduling planner for meetings, calls, reminders, and timezone-aware day planning.
+A **personal scheduling and task planner** for people managing meetings, calls, and reminders across time zones.
 
-## Local backend
-- Uses `sqflite` + `path`.
-- Database file: `chrono_ui.db`.
-- Tables:
-  - `app_state` (onboarding status)
-  - `profiles` (user profile/settings)
-  - `events` (full event CRUD)
-- Seeds profile and starter events on first run.
-
-## Included user flows
-- Onboarding (persisted)
-- Today view (filter and empty states)
-- Calendar board view
+## Included user flows (UI-only)
+- Onboarding / entry screen
+- Today view (task cards)
+- Calendar board view (stacked day cards)
 - Month overview grid
 - Search flow
 - Event detail flow
-- Create event flow (insert to SQLite)
-- Edit event flow (update SQLite)
-- Delete event flow (delete from SQLite)
-- Profile/settings edit flow (save to SQLite)
+- Create event flow
+- Profile/settings flow
+- Empty states for filters and search
 
-## Run
-```bash
-flutter pub get
-flutter run
-```
+> No backend or persistence is included. Event creation uses local in-memory demo state.

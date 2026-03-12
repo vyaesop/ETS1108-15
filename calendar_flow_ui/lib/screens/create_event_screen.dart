@@ -3,24 +3,16 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 
 class CreateEventScreen extends StatefulWidget {
-  const CreateEventScreen({super.key, this.initial});
-
-  final AppEvent? initial;
+  const CreateEventScreen({super.key});
 
   @override
   State<CreateEventScreen> createState() => _CreateEventScreenState();
 }
 
 class _CreateEventScreenState extends State<CreateEventScreen> {
-  late DateTime date;
-  late TimeOfDay start;
-  late TimeOfDay end;
-  late bool reminder;
-  late int colorValue;
-
+  final draft = EventDraft();
   final titleCtrl = TextEditingController();
   final locationCtrl = TextEditingController();
-  final attendeesCtrl = TextEditingController();
 
   final colors = const [
     Color(0xFFE8C47D),
@@ -31,71 +23,52 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    final initial = widget.initial;
-    date = initial?.date ?? DateTime.now();
-    start = initial?.start ?? const TimeOfDay(hour: 9, minute: 0);
-    end = initial?.end ?? const TimeOfDay(hour: 10, minute: 0);
-    reminder = initial?.reminder ?? true;
-    colorValue = initial?.colorValue ?? const Color(0xFFE8C47D).value;
-    titleCtrl.text = initial?.title ?? '';
-    locationCtrl.text = initial?.location ?? '';
-    attendeesCtrl.text = initial?.attendees ?? 'ME';
-  }
-
-  @override
   void dispose() {
     titleCtrl.dispose();
     locationCtrl.dispose();
-    attendeesCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.initial != null;
-
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Edit Event' : 'Create Event')),
+      appBar: AppBar(title: const Text('Create Event')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Title')),
           const SizedBox(height: 10),
           TextField(controller: locationCtrl, decoration: const InputDecoration(labelText: 'Location')),
-          const SizedBox(height: 10),
-          TextField(controller: attendeesCtrl, decoration: const InputDecoration(labelText: 'Attendees (comma separated initials)')),
           const SizedBox(height: 12),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Date'),
-            subtitle: Text('${date.year}-${date.month}-${date.day}'),
+            subtitle: Text('${draft.date.year}-${draft.date.month}-${draft.date.day}'),
             trailing: const Icon(Icons.calendar_month),
             onTap: () async {
               final picked = await showDatePicker(
                 context: context,
                 firstDate: DateTime(2024),
                 lastDate: DateTime(2030),
-                initialDate: date,
+                initialDate: draft.date,
               );
-              if (picked != null) setState(() => date = picked);
+              if (picked != null) setState(() => draft.date = picked);
             },
           ),
           _timeTile(
             label: 'Start',
-            value: start,
+            value: draft.start,
             onPick: () async {
-              final picked = await showTimePicker(context: context, initialTime: start);
-              if (picked != null) setState(() => start = picked);
+              final picked = await showTimePicker(context: context, initialTime: draft.start);
+              if (picked != null) setState(() => draft.start = picked);
             },
           ),
           _timeTile(
             label: 'End',
-            value: end,
+            value: draft.end,
             onPick: () async {
-              final picked = await showTimePicker(context: context, initialTime: end);
-              if (picked != null) setState(() => end = picked);
+              final picked = await showTimePicker(context: context, initialTime: draft.end);
+              if (picked != null) setState(() => draft.end = picked);
             },
           ),
           const SizedBox(height: 12),
@@ -103,21 +76,19 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           Wrap(
             spacing: 8,
             children: colors
-                .map(
-                  (c) => InkWell(
-                    onTap: () => setState(() => colorValue = c.value),
-                    child: CircleAvatar(
-                      radius: 15,
-                      backgroundColor: c,
-                      child: colorValue == c.value ? const Icon(Icons.check, size: 16) : null,
-                    ),
-                  ),
-                )
+                .map((c) => InkWell(
+                      onTap: () => setState(() => draft.color = c),
+                      child: CircleAvatar(
+                        radius: 15,
+                        backgroundColor: c,
+                        child: draft.color == c ? const Icon(Icons.check, size: 16) : null,
+                      ),
+                    ))
                 .toList(),
           ),
           SwitchListTile(
-            value: reminder,
-            onChanged: (v) => setState(() => reminder = v),
+            value: draft.reminder,
+            onChanged: (v) => setState(() => draft.reminder = v),
             title: const Text('Enable reminder'),
           ),
           const SizedBox(height: 24),
@@ -129,19 +100,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               Navigator.pop(
                 context,
                 AppEvent(
-                  id: widget.initial?.id,
                   title: title,
-                  start: start,
-                  end: end,
+                  start: draft.start,
+                  end: draft.end,
                   location: locationCtrl.text.trim().isEmpty ? 'Unspecified location' : locationCtrl.text.trim(),
-                  attendees: attendeesCtrl.text.trim().isEmpty ? 'ME' : attendeesCtrl.text.trim(),
-                  colorValue: colorValue,
-                  date: date,
-                  reminder: reminder,
+                  attendees: const ['ME'],
+                  color: draft.color,
+                  date: draft.date,
                 ),
               );
             },
-            child: Text(isEdit ? 'Save Changes' : 'Save Event'),
+            child: const Text('Save Event'),
           ),
         ],
       ),
