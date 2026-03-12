@@ -77,7 +77,7 @@ class EventCard extends StatelessWidget {
                 Expanded(
                   child: Text(event.location, style: TextStyle(color: textColor.withOpacity(0.9))),
                 ),
-                ...event.attendeeList.take(3).map((a) => Container(
+                ...event.attendees.take(3).map((a) => Container(
                       width: 24,
                       height: 24,
                       margin: const EdgeInsets.only(left: 4),

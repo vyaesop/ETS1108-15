@@ -7,7 +7,7 @@ class AppEvent {
   final TimeOfDay start;
   final TimeOfDay end;
   final String location;
-  final String attendees;
+  final List<String> attendees;
   final int colorValue;
   final bool reminder;
 
@@ -20,65 +20,63 @@ class AppEvent {
     required this.location,
     required this.attendees,
     required this.colorValue,
-    this.reminder = true,
+    required this.reminder,
   });
 
   Color get color => Color(colorValue);
-
-  List<String> get attendeeList {
-    final normalized = attendees.replaceAll('|', ',');
-    return normalized
-        .split(',')
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
-  }
-
-  factory AppEvent.fromMap(Map<String, Object?> map) {
-    return AppEvent(
-      id: map['id'] as int?,
-      title: map['title'] as String,
-      date: DateTime.parse(map['date'] as String),
-      start: _timeFromMinutes(map['start_minutes'] as int),
-      end: _timeFromMinutes(map['end_minutes'] as int),
-      location: map['location'] as String,
-      attendees: map['attendees'] as String,
-      colorValue: map['color_value'] as int,
-      reminder: (map['reminder'] as int) == 1,
-    );
-  }
 
   Map<String, Object?> toMap() {
     return {
       'id': id,
       'title': title,
       'date': DateTime(date.year, date.month, date.day).toIso8601String(),
-      'start_minutes': _toMinutes(start),
-      'end_minutes': _toMinutes(end),
+      'start_minutes': start.hour * 60 + start.minute,
+      'end_minutes': end.hour * 60 + end.minute,
       'location': location,
-      'attendees': attendees,
       'color_value': colorValue,
       'reminder': reminder ? 1 : 0,
     };
   }
 
-  static int _toMinutes(TimeOfDay time) => (time.hour * 60) + time.minute;
-
-  static TimeOfDay _timeFromMinutes(int minutes) {
-    final hour = minutes ~/ 60;
-    final minute = minutes % 60;
-    return TimeOfDay(hour: hour, minute: minute);
+  AppEvent copyWith({
+    int? id,
+    String? title,
+    DateTime? date,
+    TimeOfDay? start,
+    TimeOfDay? end,
+    String? location,
+    List<String>? attendees,
+    int? colorValue,
+    bool? reminder,
+  }) {
+    return AppEvent(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      date: date ?? this.date,
+      start: start ?? this.start,
+      end: end ?? this.end,
+      location: location ?? this.location,
+      attendees: attendees ?? this.attendees,
+      colorValue: colorValue ?? this.colorValue,
+      reminder: reminder ?? this.reminder,
+    );
   }
-}
 
-class EventDraft {
-  String title = '';
-  String location = '';
-  DateTime date = DateTime.now();
-  TimeOfDay start = const TimeOfDay(hour: 9, minute: 0);
-  TimeOfDay end = const TimeOfDay(hour: 10, minute: 0);
-  Color color = const Color(0xFFE8C47D);
-  bool reminder = true;
+  static AppEvent fromMap(Map<String, Object?> map, {List<String> attendees = const []}) {
+    final startMinutes = map['start_minutes'] as int;
+    final endMinutes = map['end_minutes'] as int;
+    return AppEvent(
+      id: map['id'] as int,
+      title: map['title'] as String,
+      date: DateTime.parse(map['date'] as String),
+      start: TimeOfDay(hour: startMinutes ~/ 60, minute: startMinutes % 60),
+      end: TimeOfDay(hour: endMinutes ~/ 60, minute: endMinutes % 60),
+      location: map['location'] as String,
+      attendees: attendees,
+      colorValue: map['color_value'] as int,
+      reminder: (map['reminder'] as int) == 1,
+    );
+  }
 }
 
 class UserProfile {
@@ -96,24 +94,24 @@ class UserProfile {
     required this.goals,
   });
 
-  List<String> get goalList {
-    final normalized = goals.replaceAll('|', ',');
-    return normalized
-        .split(',')
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
-  }
+  List<String> get goalList => goals.split('|').where((e) => e.isNotEmpty).toList();
+
+  Map<String, Object?> toMap() => {
+        'id': id,
+        'name': name,
+        'city': city,
+        'timezone': timezone,
+        'goals': goals,
+      };
 
   UserProfile copyWith({
-    int? id,
     String? name,
     String? city,
     String? timezone,
     String? goals,
   }) {
     return UserProfile(
-      id: id ?? this.id,
+      id: id,
       name: name ?? this.name,
       city: city ?? this.city,
       timezone: timezone ?? this.timezone,
@@ -121,23 +119,11 @@ class UserProfile {
     );
   }
 
-  factory UserProfile.fromMap(Map<String, Object?> map) {
-    return UserProfile(
-      id: (map['id'] as int?) ?? 1,
-      name: map['name'] as String,
-      city: map['city'] as String,
-      timezone: map['timezone'] as String,
-      goals: map['goals'] as String,
-    );
-  }
-
-  Map<String, Object?> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'city': city,
-      'timezone': timezone,
-      'goals': goals,
-    };
-  }
+  static UserProfile fromMap(Map<String, Object?> map) => UserProfile(
+        id: map['id'] as int,
+        name: map['name'] as String,
+        city: map['city'] as String,
+        timezone: map['timezone'] as String,
+        goals: map['goals'] as String,
+      );
 }

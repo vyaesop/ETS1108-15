@@ -15,6 +15,8 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final ctrl = TextEditingController();
+  bool reminderOnly = false;
+  DateTimeRange? range;
 
   @override
   void dispose() {
@@ -25,9 +27,17 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final q = ctrl.text.trim().toLowerCase();
-    final results = q.isEmpty
-        ? widget.events
-        : widget.events.where((e) => e.title.toLowerCase().contains(q) || e.location.toLowerCase().contains(q)).toList();
+    final results = widget.events.where((e) {
+      final textMatch = q.isEmpty ||
+          e.title.toLowerCase().contains(q) ||
+          e.location.toLowerCase().contains(q) ||
+          e.attendees.any((a) => a.toLowerCase().contains(q));
+      final reminderMatch = !reminderOnly || e.reminder;
+      final dateMatch = range == null ||
+          (!_normalize(e.date).isBefore(_normalize(range!.start)) &&
+              !_normalize(e.date).isAfter(_normalize(range!.end)));
+      return textMatch && reminderMatch && dateMatch;
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Search & Filters')),
@@ -37,19 +47,52 @@ class _SearchScreenState extends State<SearchScreen> {
           TextField(
             controller: ctrl,
             decoration: InputDecoration(
-              hintText: 'Meeting, lunch, location...',
+              hintText: 'Meeting, lunch, location, attendee...',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: IconButton(onPressed: () => setState(ctrl.clear), icon: const Icon(Icons.close)),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
             ),
             onChanged: (_) => setState(() {}),
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                selected: reminderOnly,
+                label: const Text('Reminders only'),
+                onSelected: (v) => setState(() => reminderOnly = v),
+              ),
+              FilterChip(
+                selected: range != null,
+                label: Text(range == null
+                    ? 'Date range'
+                    : '${range!.start.month}/${range!.start.day} - ${range!.end.month}/${range!.end.day}'),
+                onSelected: (_) async {
+                  final now = DateTime.now();
+                  final picked = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(now.year - 2),
+                    lastDate: DateTime(now.year + 2),
+                    initialDateRange: range,
+                  );
+                  if (picked != null) setState(() => range = picked);
+                },
+              ),
+              if (range != null)
+                ActionChip(
+                  onPressed: () => setState(() => range = null),
+                  label: const Text('Clear range'),
+                ),
+            ],
+          ),
           const SizedBox(height: 16),
           if (results.isEmpty)
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
-                child: Text('No matching events found.'),
+                child: Text('No matching events found for the selected filters.'),
               ),
             )
           else
@@ -58,4 +101,6 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
     );
   }
+
+  DateTime _normalize(DateTime d) => DateTime(d.year, d.month, d.day);
 }

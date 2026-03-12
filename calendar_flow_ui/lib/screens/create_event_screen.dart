@@ -41,7 +41,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     colorValue = initial?.colorValue ?? const Color(0xFFE8C47D).value;
     titleCtrl.text = initial?.title ?? '';
     locationCtrl.text = initial?.location ?? '';
-    attendeesCtrl.text = initial?.attendees ?? 'ME';
+    attendeesCtrl.text = initial == null ? 'ME' : initial.attendees.join(', ');
   }
 
   @override
@@ -125,7 +125,20 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
             onPressed: () {
               final title = titleCtrl.text.trim();
-              if (title.isEmpty) return;
+              if (title.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Title is required.')));
+                return;
+              }
+
+              final startMinutes = start.hour * 60 + start.minute;
+              final endMinutes = end.hour * 60 + end.minute;
+              if (endMinutes <= startMinutes) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('End time must be after start time.')),
+                );
+                return;
+              }
+
               Navigator.pop(
                 context,
                 AppEvent(
@@ -134,7 +147,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   start: start,
                   end: end,
                   location: locationCtrl.text.trim().isEmpty ? 'Unspecified location' : locationCtrl.text.trim(),
-                  attendees: attendeesCtrl.text.trim().isEmpty ? 'ME' : attendeesCtrl.text.trim(),
+                  attendees: attendeesCtrl.text.trim().isEmpty
+                      ? const ['ME']
+                      : attendeesCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
                   colorValue: colorValue,
                   date: date,
                   reminder: reminder,

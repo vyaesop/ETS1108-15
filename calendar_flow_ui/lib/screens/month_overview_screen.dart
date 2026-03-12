@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../mock_data.dart';
+import '../models/app_models.dart';
 
 class MonthOverviewScreen extends StatelessWidget {
   final ValueChanged<int> onMonthTap;
+  final List<AppEvent> events;
 
-  const MonthOverviewScreen({super.key, required this.onMonthTap});
+  const MonthOverviewScreen({super.key, required this.onMonthTap, required this.events});
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +48,7 @@ class MonthOverviewScreen extends StatelessWidget {
                 ),
                 itemBuilder: (context, index) {
                   final color = MockData.monthPalette[index];
+                  final count = events.where((e) => e.date.month == index + 1).length;
                   return InkWell(
                     onTap: () => onMonthTap(index),
                     child: Container(
@@ -54,9 +57,24 @@ class MonthOverviewScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(months[index], style: TextStyle(color: Colors.white.withOpacity(.95), fontWeight: FontWeight.w600)),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(months[index], style: TextStyle(color: Colors.white.withOpacity(.95), fontWeight: FontWeight.w600)),
+                              ),
+                              if (count > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.25),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 11)),
+                                ),
+                            ],
+                          ),
                           const SizedBox(height: 8),
-                          _MiniCalendar(color: Colors.white.withOpacity(.85)),
+                          _MiniCalendar(color: Colors.white.withOpacity(.85), highlightDensity: count),
                         ],
                       ),
                     ),
@@ -73,11 +91,13 @@ class MonthOverviewScreen extends StatelessWidget {
 
 class _MiniCalendar extends StatelessWidget {
   final Color color;
+  final int highlightDensity;
 
-  const _MiniCalendar({required this.color});
+  const _MiniCalendar({required this.color, required this.highlightDensity});
 
   @override
   Widget build(BuildContext context) {
+    final highlightedCells = (highlightDensity.clamp(0, 8)) as int;
     return Expanded(
       child: Column(
         children: [
@@ -88,12 +108,25 @@ class _MiniCalendar extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: 35,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
-              itemBuilder: (_, index) => Center(
-                child: Text(
-                  index % 31 == 0 ? '' : '${(index % 31) + 1}',
-                  style: TextStyle(fontSize: 8, color: color),
-                ),
-              ),
+              itemBuilder: (_, index) {
+                final day = index % 31 == 0 ? '' : '${(index % 31) + 1}';
+                final highlighted = index < highlightedCells && day.isNotEmpty;
+                return Center(
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: highlighted ? Colors.white.withOpacity(0.35) : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      day,
+                      style: TextStyle(fontSize: 8, color: color),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

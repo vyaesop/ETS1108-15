@@ -97,10 +97,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _save() async {
+    final tz = tzCtrl.text.trim();
+    final tzValid = RegExp(r'^GMT[+-](?:0?[0-9]|1[0-2])$').hasMatch(tz);
+    if (!tzValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Timezone must be in format GMT+7 or GMT-5.')),
+      );
+      return;
+    }
+
     final updated = widget.profile.copyWith(
       name: nameCtrl.text.trim(),
       city: cityCtrl.text.trim(),
-      timezone: tzCtrl.text.trim(),
+      timezone: tz,
       goals: goalsCtrl.text
           .split(',')
           .map((e) => e.trim())

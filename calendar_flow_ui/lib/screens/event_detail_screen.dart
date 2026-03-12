@@ -58,7 +58,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             const SizedBox(height: 18),
             const Text('Attendees', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-            Wrap(spacing: 8, children: current.attendeeList.map((e) => Chip(label: Text(e))).toList()),
+            Wrap(spacing: 8, children: current.attendees.map((e) => Chip(label: Text(e))).toList()),
             const SizedBox(height: 20),
             ListTile(
               contentPadding: EdgeInsets.zero,
