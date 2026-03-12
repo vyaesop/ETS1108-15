@@ -20,7 +20,7 @@ class AppTheme {
         shape: StadiumBorder(side: BorderSide(color: Colors.grey.shade300)),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
