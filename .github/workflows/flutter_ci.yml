@@ -1,0 +1,35 @@
+name: Flutter CI
+
+on:
+  pull_request:
+    paths:
+      - 'calendar_flow_ui/**'
+      - '.github/workflows/flutter_ci.yml'
+  push:
+    branches: [ main, master, work ]
+    paths:
+      - 'calendar_flow_ui/**'
+      - '.github/workflows/flutter_ci.yml'
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: calendar_flow_ui
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Unit and widget tests
+        run: flutter test
