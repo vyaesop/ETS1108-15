@@ -10,10 +10,8 @@ class AppEvent {
   final String attendees;
   final int colorValue;
   final bool reminder;
-  final bool reminder;
 
   const AppEvent({
-    this.id,
     this.id,
     required this.title,
     required this.date,
@@ -22,9 +20,19 @@ class AppEvent {
     required this.location,
     required this.attendees,
     required this.colorValue,
-    required this.reminder,
     this.reminder = true,
   });
+
+  Color get color => Color(colorValue);
+
+  List<String> get attendeeList {
+    final normalized = attendees.replaceAll('|', ',');
+    return normalized
+        .split(',')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+  }
 
   factory AppEvent.fromMap(Map<String, Object?> map) {
     return AppEvent(
@@ -34,8 +42,8 @@ class AppEvent {
       start: _timeFromMinutes(map['start_minutes'] as int),
       end: _timeFromMinutes(map['end_minutes'] as int),
       location: map['location'] as String,
-      attendees: ((map['attendees'] as String).split('|')..removeWhere((value) => value.isEmpty)),
-      color: Color(map['color_value'] as int),
+      attendees: map['attendees'] as String,
+      colorValue: map['color_value'] as int,
       reminder: (map['reminder'] as int) == 1,
     );
   }
@@ -48,8 +56,8 @@ class AppEvent {
       'start_minutes': _toMinutes(start),
       'end_minutes': _toMinutes(end),
       'location': location,
-      'attendees': attendees.join('|'),
-      'color_value': color.value,
+      'attendees': attendees,
+      'color_value': colorValue,
       'reminder': reminder ? 1 : 0,
     };
   }
@@ -88,22 +96,48 @@ class UserProfile {
     required this.goals,
   });
 
+  List<String> get goalList {
+    final normalized = goals.replaceAll('|', ',');
+    return normalized
+        .split(',')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+  }
+
+  UserProfile copyWith({
+    int? id,
+    String? name,
+    String? city,
+    String? timezone,
+    String? goals,
+  }) {
+    return UserProfile(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      city: city ?? this.city,
+      timezone: timezone ?? this.timezone,
+      goals: goals ?? this.goals,
+    );
+  }
+
   factory UserProfile.fromMap(Map<String, Object?> map) {
     return UserProfile(
+      id: (map['id'] as int?) ?? 1,
       name: map['name'] as String,
       city: map['city'] as String,
       timezone: map['timezone'] as String,
-      goals: ((map['goals'] as String).split('|')..removeWhere((value) => value.isEmpty)),
+      goals: map['goals'] as String,
     );
   }
 
   Map<String, Object?> toMap() {
     return {
-      'id': 1,
+      'id': id,
       'name': name,
       'city': city,
       'timezone': timezone,
-      'goals': goals.join('|'),
+      'goals': goals,
     };
   }
 }
